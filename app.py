@@ -415,17 +415,25 @@ def get_culture_features(text):
 
     features = []
 
-    for category, words in CULTURE_KEYWORDS.items():
+    # IMPORTANT:
+    # Use original culture_features list
+    # so feature count matches model
+
+    for feature in culture_features:
 
         matched = False
 
-        for word in words:
+        if feature.lower() in CULTURE_KEYWORDS:
 
-            if word in text_lower:
+            for word in CULTURE_KEYWORDS[
+                feature.lower()
+            ]:
 
-                matched = True
-                detected.append(category)
-                break
+                if word in text_lower:
+
+                    matched = True
+                    detected.append(feature)
+                    break
 
         features.append(
             1 if matched else 0
