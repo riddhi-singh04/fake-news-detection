@@ -5,9 +5,9 @@ import os
 import gdown
 from datetime import datetime
 
-# -----------------------------
+# -------------------------------------------------
 # Page configuration
-# -----------------------------
+# -------------------------------------------------
 
 st.set_page_config(
     page_title="Fake News Detection",
@@ -15,16 +15,16 @@ st.set_page_config(
     layout="wide"
 )
 
-# -----------------------------
+# -------------------------------------------------
 # Session state
-# -----------------------------
+# -------------------------------------------------
 
 if "user_text" not in st.session_state:
     st.session_state.user_text = ""
 
-# -----------------------------
-# Theme toggle (working)
-# -----------------------------
+# -------------------------------------------------
+# Theme toggle
+# -------------------------------------------------
 
 theme = st.sidebar.selectbox(
     "Choose Theme",
@@ -33,29 +33,36 @@ theme = st.sidebar.selectbox(
 
 if theme == "Dark":
 
-    st.markdown("""
+    st.markdown(
+        """
         <style>
         .stApp {
             background-color: #0e1117;
             color: white;
         }
         </style>
-    """, unsafe_allow_html=True)
+        """,
+        unsafe_allow_html=True
+    )
 
 elif theme == "Light":
 
-    st.markdown("""
+    st.markdown(
+        """
         <style>
         .stApp {
             background-color: #ffffff;
             color: black;
         }
         </style>
-    """, unsafe_allow_html=True)
+        """,
+        unsafe_allow_html=True
+    )
 
 elif theme == "Smooth":
 
-    st.markdown("""
+    st.markdown(
+        """
         <style>
         .stApp {
             background: linear-gradient(
@@ -67,11 +74,13 @@ elif theme == "Smooth":
             color: white;
         }
         </style>
-    """, unsafe_allow_html=True)
+        """,
+        unsafe_allow_html=True
+    )
 
-# -----------------------------
+# -------------------------------------------------
 # Model download if missing
-# -----------------------------
+# -------------------------------------------------
 
 MODEL_PATH = "saved_model/model.pkl"
 
@@ -85,9 +94,9 @@ if not os.path.exists(MODEL_PATH):
         quiet=False
     )
 
-# -----------------------------
+# -------------------------------------------------
 # Load components
-# -----------------------------
+# -------------------------------------------------
 
 model = joblib.load("saved_model/model.pkl")
 vectorizer = joblib.load("saved_model/vectorizer.pkl")
@@ -95,6 +104,10 @@ scaler = joblib.load("saved_model/scaler.pkl")
 culture_features = joblib.load(
     "saved_model/culture_features.pkl"
 )
+
+# -------------------------------------------------
+# Rich cultural keywords
+# -------------------------------------------------
 
 CULTURE_KEYWORDS = {
 
@@ -318,9 +331,9 @@ CULTURE_KEYWORDS = {
 
 }
 
-# -----------------------------
+# -------------------------------------------------
 # Header
-# -----------------------------
+# -------------------------------------------------
 
 st.title("📰 Cross-Lingual Fake News Detection")
 
@@ -335,9 +348,9 @@ st.markdown(
 
 st.divider()
 
-# -----------------------------
+# -------------------------------------------------
 # Sidebar
-# -----------------------------
+# -------------------------------------------------
 
 st.sidebar.title("About This System")
 
@@ -352,9 +365,9 @@ st.sidebar.write(
 
 st.sidebar.write("Model: Random Forest")
 
-# -----------------------------
-# Example buttons (working)
-# -----------------------------
+# -------------------------------------------------
+# Example buttons
+# -------------------------------------------------
 
 st.subheader("Try Example News")
 
@@ -377,9 +390,9 @@ with col2:
             "Scientists confirm drinking bleach cures all diseases instantly."
         )
 
-# -----------------------------
+# -------------------------------------------------
 # Input box
-# -----------------------------
+# -------------------------------------------------
 
 user_text = st.text_area(
     "Enter News Text",
@@ -390,33 +403,29 @@ user_text = st.text_area(
 
 st.session_state.user_text = user_text
 
-# -----------------------------
-# Cultural feature detection
-# -----------------------------
+# -------------------------------------------------
+# Cultural detection (independent of model schema)
+# -------------------------------------------------
 
 def get_culture_features(text):
 
     text_lower = text.lower()
 
-    features = []
     detected = []
 
-    for feature in culture_features:
+    features = []
+
+    for category, words in CULTURE_KEYWORDS.items():
 
         matched = False
 
-        if feature.lower() in CULTURE_KEYWORDS:
+        for word in words:
 
-            for word in CULTURE_KEYWORDS[
-                feature.lower()
-            ]:
+            if word in text_lower:
 
-                if word in text_lower:
-
-                    matched = True
-                    detected.append(feature)
-
-                    break
+                matched = True
+                detected.append(category)
+                break
 
         features.append(
             1 if matched else 0
@@ -427,9 +436,9 @@ def get_culture_features(text):
         detected
     )
 
-# -----------------------------
+# -------------------------------------------------
 # Prediction
-# -----------------------------
+# -------------------------------------------------
 
 if st.button("Predict"):
 
@@ -454,9 +463,10 @@ if st.button("Predict"):
                         st.session_state.user_text
                     )
 
-                culture_vector = scaler.transform(
-                    culture_vector
-                )
+                if culture_vector.shape[1] == scaler.n_features_in_:
+                    culture_vector = scaler.transform(
+                        culture_vector
+                    )
 
                 combined = np.hstack(
                     (
@@ -478,7 +488,6 @@ if st.button("Predict"):
                     2
                 )
 
-                # CORRECT probability mapping
                 real_prob = round(
                     probability[0] * 100,
                     2
@@ -489,9 +498,9 @@ if st.button("Predict"):
                     2
                 )
 
-            # -----------------------------
-            # Correct label mapping
-            # -----------------------------
+            # -------------------------------------------------
+            # Label mapping
+            # -------------------------------------------------
 
             if prediction == 1:
 
@@ -515,9 +524,9 @@ if st.button("Predict"):
                 f"Real Probability: {real_prob}%"
             )
 
-            # -----------------------------
+            # -------------------------------------------------
             # Cultural features
-            # -----------------------------
+            # -------------------------------------------------
 
             st.subheader(
                 "Detected Cultural Features"
@@ -535,12 +544,12 @@ if st.button("Predict"):
                     "No cultural indicators detected."
                 )
 
-            # -----------------------------
-            # XAI
-            # -----------------------------
+            # -------------------------------------------------
+            # XAI (filtered meaningful words)
+            # -------------------------------------------------
 
             st.subheader(
-                "Top Influential Features"
+                "Top Influential Words"
             )
 
             text_features = \
@@ -557,19 +566,34 @@ if st.button("Predict"):
                 zip(all_features, importances)
             )
 
-            top_features = sorted(
+            sorted_features = sorted(
                 feature_importance,
                 key=lambda x: x[1],
                 reverse=True
-            )[:5]
+            )
 
-            for feature, value in top_features:
+            filtered = []
 
-                st.write("•", feature)
+            for feature, value in sorted_features:
 
-            # -----------------------------
+                if feature not in [
+                    "token_count",
+                    "unique_token_count",
+                    "lexical_diversity"
+                ]:
+
+                    filtered.append(feature)
+
+                if len(filtered) == 5:
+                    break
+
+            for f in filtered:
+
+                st.write("•", f)
+
+            # -------------------------------------------------
             # Warning
-            # -----------------------------
+            # -------------------------------------------------
 
             if confidence < 60:
 
@@ -577,9 +601,9 @@ if st.button("Predict"):
                     "Low confidence prediction — result may be unreliable."
                 )
 
-            # -----------------------------
+            # -------------------------------------------------
             # Download report
-            # -----------------------------
+            # -------------------------------------------------
 
             report = f"""
 Fake News Detection Report
@@ -598,6 +622,9 @@ Fake Probability:
 
 Real Probability:
 {real_prob}%
+
+Detected Cultural Features:
+{', '.join(detected_features) if detected_features else 'None'}
 
 Generated:
 {datetime.now()}
@@ -623,9 +650,9 @@ Generated:
 
             st.write(str(e))
 
-# -----------------------------
+# -------------------------------------------------
 # Footer
-# -----------------------------
+# -------------------------------------------------
 
 st.divider()
 
