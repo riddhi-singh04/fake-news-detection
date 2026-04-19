@@ -427,28 +427,65 @@ def get_culture_features(text):
 
     # IMPORTANT: match model feature schema
 
-    for feature in culture_features:
+    def get_culture_features(text):
 
-        matched = False
+    text_lower = text.lower()
+
+    detected_categories = []
+    detected_features = []
+
+    features = []
+
+    # Step 1 — detect categories from keywords
+
+    for category, words in CULTURE_KEYWORDS.items():
+
+        for word in words:
+
+            if word in text_lower:
+
+                detected_categories.append(category)
+
+                break
+
+    # Step 2 — build feature vector matching model
+
+    for feature in culture_features:
 
         feature_lower = feature.lower()
 
-        if feature_lower in text_lower:
+        matched = False
+
+        # match category
+
+        if feature_lower in detected_categories:
+
             matched = True
 
-        elif feature_lower in detected_categories:
+        # match keyword directly
+
+        for words in CULTURE_KEYWORDS.values():
+
+            if any(w in text_lower for w in words):
+
+                if feature_lower in words:
+                    matched = True
+
+        # match literal feature name
+
+        if feature_lower in text_lower:
+
             matched = True
 
         features.append(1 if matched else 0)
 
         if matched:
-            detected.append(feature)
+            detected_features.append(feature)
 
     return (
         np.array(features).reshape(1, -1),
-        detected
+        detected_features
     )
-
 # -------------------------------------------------
 # Prediction
 # -------------------------------------------------
