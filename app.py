@@ -1,6 +1,9 @@
 import streamlit as st
 import joblib
 import numpy as np
+import os
+import gdown
+from datetime import datetime
 
 # -----------------------------
 # Page configuration
@@ -9,11 +12,56 @@ import numpy as np
 st.set_page_config(
     page_title="Fake News Detection",
     page_icon="📰",
-    layout="centered"
+    layout="wide"
 )
 
-import os
-import gdown
+# -----------------------------
+# Theme toggle
+# -----------------------------
+
+theme = st.sidebar.selectbox(
+    "Choose Theme",
+    ["Dark", "Light", "Smooth Blue"]
+)
+
+if theme == "Dark":
+
+    st.markdown("""
+        <style>
+        body {
+            background-color: #0e1117;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
+elif theme == "Light":
+
+    st.markdown("""
+        <style>
+        body {
+            background-color: #ffffff;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
+elif theme == "Smooth Blue":
+
+    st.markdown("""
+        <style>
+        body {
+            background: linear-gradient(
+                to right,
+                #0f2027,
+                #203a43,
+                #2c5364
+            );
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
+# -----------------------------
+# Model download (if missing)
+# -----------------------------
 
 MODEL_PATH = "saved_model/model.pkl"
 
@@ -34,16 +82,18 @@ if not os.path.exists(MODEL_PATH):
 model = joblib.load("saved_model/model.pkl")
 vectorizer = joblib.load("saved_model/vectorizer.pkl")
 scaler = joblib.load("saved_model/scaler.pkl")
-culture_features = joblib.load("saved_model/culture_features.pkl")
+culture_features = joblib.load(
+    "saved_model/culture_features.pkl"
+)
 
 # -----------------------------
-# Title
+# Header
 # -----------------------------
 
 st.title("📰 Cross-Lingual Fake News Detection")
 
 st.subheader(
-    "with Cultural Context Analysis"
+    "AI-powered verification with Cultural Context Analysis"
 )
 
 st.markdown(
@@ -66,11 +116,13 @@ st.sidebar.write(
     • Machine Learning  
     • Text Features  
     • Cultural Context Analysis  
-    • Explainable AI (XAI)  
+    • Explainable AI (XAI)
     """
 )
 
 st.sidebar.write("Model: Random Forest")
+
+st.sidebar.write("Deployment: Streamlit Cloud")
 
 # -----------------------------
 # Example buttons
@@ -84,28 +136,31 @@ example_text = ""
 
 with col1:
 
-    if st.button("Fake Example"):
+    if st.button("Load Real News Example"):
 
         example_text = (
-            "Scientists confirm drinking bleach cures all diseases instantly."
+            "The Reserve Bank of India announced a revision "
+            "in repo rates to control inflation."
         )
 
 with col2:
 
-    if st.button("Real Example"):
+    if st.button("Load Fake News Example"):
 
         example_text = (
-            "The government announced a new vaccination program for children."
+            "Eating chocolate daily guarantees 100 percent "
+            "immunity from all diseases."
         )
 
 # -----------------------------
-# User input
+# Input box
 # -----------------------------
 
 user_text = st.text_area(
     "Enter News Text",
     value=example_text,
-    height=150
+    height=180,
+    placeholder="Paste news headline or article here..."
 )
 
 # -----------------------------
@@ -146,15 +201,13 @@ if st.button("Predict"):
 
         try:
 
-            with st.spinner("Analyzing news..."):
-
-                # Text features
+            with st.spinner(
+                "Analyzing news content..."
+            ):
 
                 text_vector = vectorizer.transform(
                     [user_text]
                 )
-
-                # Cultural features
 
                 culture_vector, detected_features = \
                     get_culture_features(user_text)
@@ -163,16 +216,12 @@ if st.button("Predict"):
                     culture_vector
                 )
 
-                # Combine features
-
                 combined = np.hstack(
                     (
                         text_vector.toarray(),
                         culture_vector
                     )
                 )
-
-                # Prediction
 
                 prediction = int(
                     model.predict(combined)[0]
@@ -182,8 +231,9 @@ if st.button("Predict"):
                     combined
                 )[0]
 
-                confidence = float(
-                    round(max(probability) * 100, 2)
+                confidence = round(
+                    max(probability) * 100,
+                    2
                 )
 
                 fake_prob = round(
@@ -197,7 +247,7 @@ if st.button("Predict"):
                 )
 
             # -----------------------------
-            # Prediction result
+            # Result display
             # -----------------------------
 
             if prediction == 1:
@@ -208,13 +258,11 @@ if st.button("Predict"):
 
                 st.error("🚨 Prediction: FAKE")
 
-            st.write(f"Confidence: {confidence}%")
+            st.write(
+                f"Confidence: {confidence}%"
+            )
 
             st.progress(confidence / 100)
-
-            # -----------------------------
-            # Probability display
-            # -----------------------------
 
             st.write(
                 f"Fake Probability: {fake_prob}%"
@@ -225,7 +273,7 @@ if st.button("Predict"):
             )
 
             # -----------------------------
-            # Cultural feature proof
+            # Cultural features
             # -----------------------------
 
             st.subheader(
@@ -245,7 +293,7 @@ if st.button("Predict"):
                 )
 
             # -----------------------------
-            # XAI — Feature importance
+            # XAI
             # -----------------------------
 
             st.subheader(
@@ -286,6 +334,45 @@ if st.button("Predict"):
                     "Low confidence prediction — result may be unreliable."
                 )
 
+            # -----------------------------
+            # Download report
+            # -----------------------------
+
+            report = f"""
+Fake News Detection Report
+--------------------------
+
+News Text:
+{user_text}
+
+Prediction:
+{"REAL" if prediction == 1 else "FAKE"}
+
+Confidence:
+{confidence}%
+
+Fake Probability:
+{fake_prob}%
+
+Real Probability:
+{real_prob}%
+
+Generated:
+{datetime.now()}
+"""
+
+            st.download_button(
+
+                label="Download Report",
+
+                data=report,
+
+                file_name="prediction_report.txt",
+
+                mime="text/plain"
+
+            )
+
         except Exception as e:
 
             st.error(
@@ -293,6 +380,10 @@ if st.button("Predict"):
             )
 
             st.write(str(e))
+
+# -----------------------------
+# Footer
+# -----------------------------
 
 st.divider()
 
