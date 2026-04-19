@@ -559,45 +559,32 @@ if st.button("Predict"):
             st.subheader(
                 "Top Influential Words"
             )
-
-            text_features = \
-                vectorizer.get_feature_names_out()
-
-            all_features = \
-                list(text_features) + \
-                list(culture_features)
-
-            importances = \
-                model.feature_importances_
-
-            feature_importance = list(
-                zip(all_features, importances)
+            tfidf_vector = vectorizer.transform(
+                [st.session_state.user_text]
             )
-
-            sorted_features = sorted(
-                feature_importance,
-                key=lambda x: x[1],
-                reverse=True
-            )
-
-            filtered = []
-
-            for feature, value in sorted_features:
-
-                if feature not in [
-                    "token_count",
-                    "unique_token_count",
-                    "lexical_diversity"
-                ]:
-
-                    filtered.append(feature)
-
-                if len(filtered) == 5:
-                    break
-
-            for f in filtered:
-
-                st.write("•", f)
+            feature_names = \
+            vectorizer.get_feature_names_out()
+            scores = tfidf_vector.toarray()[0]
+            top_indices = scores.argsort()[::-1]
+            top_words = []
+            for idx in top_indices:
+                if scores[idx] > 0:
+                    word = feature_names[idx]
+                    if word not in [
+                        "token_count",
+                        "unique_token_count",
+                        "lexical_diversity"
+                    ]:
+                        top_words.append(word)
+                        if len(top_words) == 5:
+                            break
+                            if top_words:
+                                for word in top_words:
+                                    st.write("•", word)
+                            else:
+                                st.write(
+                                    "No influential words detected."
+                                )
 
             # -------------------------------------------------
             # Warning
