@@ -16,20 +16,28 @@ st.set_page_config(
 )
 
 # -----------------------------
-# Theme toggle
+# Session state setup
+# -----------------------------
+
+if "user_text" not in st.session_state:
+    st.session_state.user_text = ""
+
+# -----------------------------
+# Theme toggle (FIXED)
 # -----------------------------
 
 theme = st.sidebar.selectbox(
     "Choose Theme",
-    ["Dark", "Light", "Smooth Blue"]
+    ["Dark", "Light", "Smooth"]
 )
 
 if theme == "Dark":
 
     st.markdown("""
         <style>
-        body {
+        .stApp {
             background-color: #0e1117;
+            color: white;
         }
         </style>
     """, unsafe_allow_html=True)
@@ -38,29 +46,31 @@ elif theme == "Light":
 
     st.markdown("""
         <style>
-        body {
+        .stApp {
             background-color: #ffffff;
+            color: black;
         }
         </style>
     """, unsafe_allow_html=True)
 
-elif theme == "Smooth Blue":
+elif theme == "Smooth":
 
     st.markdown("""
         <style>
-        body {
+        .stApp {
             background: linear-gradient(
                 to right,
                 #0f2027,
                 #203a43,
                 #2c5364
             );
+            color: white;
         }
         </style>
     """, unsafe_allow_html=True)
 
 # -----------------------------
-# Model download (if missing)
+# Model download if missing
 # -----------------------------
 
 MODEL_PATH = "saved_model/model.pkl"
@@ -76,7 +86,7 @@ if not os.path.exists(MODEL_PATH):
     )
 
 # -----------------------------
-# Load components
+# Load model
 # -----------------------------
 
 model = joblib.load("saved_model/model.pkl")
@@ -111,45 +121,39 @@ st.sidebar.title("About This System")
 
 st.sidebar.write(
     """
-    This system detects fake news using:
-
-    • Machine Learning  
-    • Text Features  
-    • Cultural Context Analysis  
-    • Explainable AI (XAI)
-    """
+• Machine Learning  
+• Text Features  
+• Cultural Context Analysis  
+• Explainable AI (XAI)
+"""
 )
 
 st.sidebar.write("Model: Random Forest")
 
-st.sidebar.write("Deployment: Streamlit Cloud")
-
 # -----------------------------
-# Example buttons
+# Example buttons (FIXED)
 # -----------------------------
 
 st.subheader("Try Example News")
 
 col1, col2 = st.columns(2)
 
-example_text = ""
-
 with col1:
 
     if st.button("Load Real News Example"):
 
-        example_text = (
-            "The Reserve Bank of India announced a revision "
-            "in repo rates to control inflation."
+        st.session_state.user_text = (
+            "The Reserve Bank of India announced "
+            "a revision in repo rates to control inflation."
         )
 
 with col2:
 
     if st.button("Load Fake News Example"):
 
-        example_text = (
-            "Eating chocolate daily guarantees 100 percent "
-            "immunity from all diseases."
+        st.session_state.user_text = (
+            "Scientists confirm drinking bleach "
+            "cures all diseases instantly."
         )
 
 # -----------------------------
@@ -158,10 +162,13 @@ with col2:
 
 user_text = st.text_area(
     "Enter News Text",
-    value=example_text,
     height=180,
+    value=st.session_state.user_text,
     placeholder="Paste news headline or article here..."
 )
+
+# keep state updated
+st.session_state.user_text = user_text
 
 # -----------------------------
 # Cultural feature detection
@@ -193,7 +200,7 @@ def get_culture_features(text):
 
 if st.button("Predict"):
 
-    if user_text.strip() == "":
+    if st.session_state.user_text.strip() == "":
 
         st.warning("Please enter news text.")
 
@@ -206,11 +213,13 @@ if st.button("Predict"):
             ):
 
                 text_vector = vectorizer.transform(
-                    [user_text]
+                    [st.session_state.user_text]
                 )
 
                 culture_vector, detected_features = \
-                    get_culture_features(user_text)
+                    get_culture_features(
+                        st.session_state.user_text
+                    )
 
                 culture_vector = scaler.transform(
                     culture_vector
@@ -247,7 +256,7 @@ if st.button("Predict"):
                 )
 
             # -----------------------------
-            # Result display
+            # Result
             # -----------------------------
 
             if prediction == 1:
@@ -325,7 +334,7 @@ if st.button("Predict"):
                 st.write("•", feature)
 
             # -----------------------------
-            # Low confidence warning
+            # Warning
             # -----------------------------
 
             if confidence < 60:
@@ -340,22 +349,15 @@ if st.button("Predict"):
 
             report = f"""
 Fake News Detection Report
---------------------------
 
 News Text:
-{user_text}
+{st.session_state.user_text}
 
 Prediction:
 {"REAL" if prediction == 1 else "FAKE"}
 
 Confidence:
 {confidence}%
-
-Fake Probability:
-{fake_prob}%
-
-Real Probability:
-{real_prob}%
 
 Generated:
 {datetime.now()}
