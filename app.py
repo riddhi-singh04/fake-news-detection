@@ -364,8 +364,6 @@ st.sidebar.write(
 )
 
 st.sidebar.write("Model: Random Forest")
-st.write("Culture Features from model:")
-st.write(culture_features)
 
 # -------------------------------------------------
 # Example buttons
@@ -408,28 +406,235 @@ st.session_state.user_text = user_text
 # -------------------------------------------------
 # Cultural feature detection (robust)
 # -------------------------------------------------
-
 def get_culture_features(text):
+
     text_lower = text.lower()
 
-    detected_categories = []
     detected_features = []
 
     features = []
 
-    # Step 1 — detect categories from keywords
+    KEYWORD_MAP = {
 
-    for category, words in CULTURE_KEYWORDS.items():
+    "politics": [
 
-        for word in words:
+        "government",
+        "minister",
+        "prime minister",
+        "president",
+        "parliament",
+        "policy",
+        "election",
+        "vote",
+        "campaign",
+        "democracy",
+        "constitution",
+        "cabinet",
+        "senate",
+        "assembly",
+        "governor",
+        "political party",
+        "law",
+        "legislation",
+        "regulation"
 
-            if word in text_lower:
+    ],
 
-                detected_categories.append(category)
+    "country": [
 
-                break
+        "india",
+        "china",
+        "usa",
+        "america",
+        "pakistan",
+        "iran",
+        "russia",
+        "uk",
+        "united kingdom",
+        "france",
+        "germany",
+        "japan",
+        "bangladesh",
+        "nepal",
+        "sri lanka",
+        "canada",
+        "australia"
 
-    # Step 2 — build feature vector matching model
+    ],
+
+    "health": [
+
+        "vaccine",
+        "vaccination",
+        "covid",
+        "coronavirus",
+        "virus",
+        "disease",
+        "infection",
+        "hospital",
+        "doctor",
+        "medicine",
+        "treatment",
+        "pandemic",
+        "epidemic",
+        "health",
+        "clinic",
+        "immunity",
+        "symptoms",
+        "medical"
+
+    ],
+
+    "religion": [
+
+        "hindu",
+        "muslim",
+        "christian",
+        "islam",
+        "temple",
+        "mosque",
+        "church",
+        "prayer",
+        "festival",
+        "ritual",
+        "god",
+        "religion",
+        "faith",
+        "spiritual",
+        "pilgrimage",
+        "holy",
+        "sacred"
+
+    ],
+
+    "economy": [
+
+        "inflation",
+        "gdp",
+        "economy",
+        "tax",
+        "budget",
+        "revenue",
+        "investment",
+        "stock",
+        "market",
+        "finance",
+        "bank",
+        "interest rate",
+        "currency",
+        "trade",
+        "import",
+        "export",
+        "economic",
+        "unemployment"
+
+    ],
+
+    "technology": [
+
+        "ai",
+        "artificial intelligence",
+        "technology",
+        "software",
+        "internet",
+        "cyber",
+        "data",
+        "algorithm",
+        "digital",
+        "robot",
+        "automation",
+        "machine learning",
+        "blockchain",
+        "cloud",
+        "app",
+        "system",
+        "network"
+
+    ],
+
+    "media": [
+
+        "news",
+        "report",
+        "media",
+        "journalist",
+        "broadcast",
+        "press",
+        "headline",
+        "article",
+        "channel",
+        "newspaper",
+        "tv",
+        "radio",
+        "social media",
+        "facebook",
+        "twitter",
+        "youtube",
+        "viral"
+
+    ],
+
+    "security": [
+
+        "war",
+        "military",
+        "army",
+        "soldier",
+        "attack",
+        "terror",
+        "terrorism",
+        "weapon",
+        "defense",
+        "security",
+        "border",
+        "missile",
+        "bomb",
+        "conflict",
+        "violence",
+        "threat"
+
+    ],
+
+    "education": [
+
+        "school",
+        "university",
+        "college",
+        "student",
+        "teacher",
+        "education",
+        "exam",
+        "curriculum",
+        "degree",
+        "learning",
+        "classroom",
+        "academic",
+        "research",
+        "scholarship"
+
+    ],
+
+    "environment": [
+
+        "climate",
+        "pollution",
+        "environment",
+        "weather",
+        "temperature",
+        "rain",
+        "flood",
+        "earthquake",
+        "drought",
+        "forest",
+        "wildlife",
+        "nature",
+        "global warming",
+        "carbon",
+        "emission"
+
+    ]
+
+}
 
     for feature in culture_features:
 
@@ -437,30 +642,21 @@ def get_culture_features(text):
 
         matched = False
 
-        # match category
+        for category, words in KEYWORD_MAP.items():
 
-        if feature_lower in detected_categories:
+            if category in feature_lower:
 
-            matched = True
+                for word in words:
 
-        # match keyword directly
+                    if word in text_lower:
 
-        for words in CULTURE_KEYWORDS.values():
-
-            if any(w in text_lower for w in words):
-
-                if feature_lower in words:
-                    matched = True
-
-        # match literal feature name
-
-        if feature_lower in text_lower:
-
-            matched = True
+                        matched = True
+                        break
 
         features.append(1 if matched else 0)
 
         if matched:
+
             detected_features.append(feature)
 
     return (
