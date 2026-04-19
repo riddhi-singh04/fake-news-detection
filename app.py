@@ -364,6 +364,8 @@ st.sidebar.write(
 )
 
 st.sidebar.write("Model: Random Forest")
+st.write("Culture Features from model:")
+st.write(culture_features)
 
 # -------------------------------------------------
 # Example buttons
