@@ -106,7 +106,7 @@ culture_features = joblib.load(
 )
 
 # -------------------------------------------------
-# Rich cultural keywords
+# Cultural keywords
 # -------------------------------------------------
 
 CULTURE_KEYWORDS = {
@@ -404,7 +404,7 @@ user_text = st.text_area(
 st.session_state.user_text = user_text
 
 # -------------------------------------------------
-# Cultural detection (independent of model schema)
+# Cultural feature detection (robust)
 # -------------------------------------------------
 
 def get_culture_features(text):
@@ -412,32 +412,37 @@ def get_culture_features(text):
     text_lower = text.lower()
 
     detected = []
-
     features = []
 
-    # IMPORTANT:
-    # Use original culture_features list
-    # so feature count matches model
+    detected_categories = []
+
+    for category, words in CULTURE_KEYWORDS.items():
+
+        for word in words:
+
+            if word in text_lower:
+
+                detected_categories.append(category)
+                break
+
+    # IMPORTANT: match model feature schema
 
     for feature in culture_features:
 
         matched = False
 
-        if feature.lower() in CULTURE_KEYWORDS:
+        feature_lower = feature.lower()
 
-            for word in CULTURE_KEYWORDS[
-                feature.lower()
-            ]:
+        if feature_lower in text_lower:
+            matched = True
 
-                if word in text_lower:
+        elif feature_lower in detected_categories:
+            matched = True
 
-                    matched = True
-                    detected.append(feature)
-                    break
+        features.append(1 if matched else 0)
 
-        features.append(
-            1 if matched else 0
-        )
+        if matched:
+            detected.append(feature)
 
     return (
         np.array(features).reshape(1, -1),
@@ -507,7 +512,7 @@ if st.button("Predict"):
                 )
 
             # -------------------------------------------------
-            # Label mapping
+            # Prediction result
             # -------------------------------------------------
 
             if prediction == 1:
@@ -533,7 +538,7 @@ if st.button("Predict"):
             )
 
             # -------------------------------------------------
-            # Cultural features
+            # Cultural features display
             # -------------------------------------------------
 
             st.subheader(
@@ -553,38 +558,58 @@ if st.button("Predict"):
                 )
 
             # -------------------------------------------------
-            # XAI (filtered meaningful words)
+            # Top Influential Words (dynamic)
             # -------------------------------------------------
 
             st.subheader(
                 "Top Influential Words"
             )
+
             tfidf_vector = vectorizer.transform(
                 [st.session_state.user_text]
             )
+
             feature_names = \
-            vectorizer.get_feature_names_out()
+                vectorizer.get_feature_names_out()
+
             scores = tfidf_vector.toarray()[0]
+
             top_indices = scores.argsort()[::-1]
+
             top_words = []
+
             for idx in top_indices:
+
+                word = feature_names[idx]
+
                 if scores[idx] > 0:
-                    word = feature_names[idx]
+
                     if word not in [
                         "token_count",
                         "unique_token_count",
                         "lexical_diversity"
                     ]:
+
                         top_words.append(word)
-                        if len(top_words) == 5:
-                            break
-                            if top_words:
-                                for word in top_words:
-                                    st.write("•", word)
-                            else:
-                                st.write(
-                                    "No influential words detected."
-                                )
+
+                if len(top_words) == 5:
+                    break
+
+            # fallback protection
+
+            if not top_words:
+
+                nonzero_indices = np.where(scores > 0)[0]
+
+                for idx in nonzero_indices[:5]:
+
+                    top_words.append(
+                        feature_names[idx]
+                    )
+
+            for word in top_words:
+
+                st.write("•", word)
 
             # -------------------------------------------------
             # Warning
