@@ -1,495 +1,259 @@
 import streamlit as st
 import joblib
 import numpy as np
-import os
-import gdown
-from datetime import datetime
+import pandas as pd
+import re
 
-# -------------------------------------------------
-# Page configuration
-# -------------------------------------------------
-
-st.set_page_config(
-    page_title="Fake News Detection",
-    page_icon="📰",
-    layout="wide"
-)
-
-# -------------------------------------------------
-# Session state
-# -------------------------------------------------
-
-if "user_text" not in st.session_state:
-    st.session_state.user_text = ""
-
-# -------------------------------------------------
-# Theme toggle
-# -------------------------------------------------
-
-theme = st.sidebar.selectbox(
-    "Choose Theme",
-    ["Dark", "Light", "Smooth"]
-)
-
-if theme == "Dark":
-
-    st.markdown(
-        """
-        <style>
-        .stApp {
-            background-color: #0e1117;
-            color: white;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
-
-elif theme == "Light":
-
-    st.markdown(
-        """
-        <style>
-        .stApp {
-            background-color: #ffffff;
-            color: black;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
-
-elif theme == "Smooth":
-
-    st.markdown(
-        """
-        <style>
-        .stApp {
-            background: linear-gradient(
-                to right,
-                #0f2027,
-                #203a43,
-                #2c5364
-            );
-            color: white;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
-
-# -------------------------------------------------
-# Model download if missing
-# -------------------------------------------------
-
-MODEL_PATH = "saved_model/model.pkl"
-
-if not os.path.exists(MODEL_PATH):
-
-    os.makedirs("saved_model", exist_ok=True)
-
-    gdown.download(
-        "https://drive.google.com/uc?id=1uV2G8hRJF38FFABo-tWDPwtAxsDOmW5s",
-        MODEL_PATH,
-        quiet=False
-    )
-
-# -------------------------------------------------
-# Load components
-# -------------------------------------------------
+# ==============================
+# Load Models
+# ==============================
 
 model = joblib.load("saved_model/model.pkl")
 vectorizer = joblib.load("saved_model/vectorizer.pkl")
 scaler = joblib.load("saved_model/scaler.pkl")
-culture_features = joblib.load(
-    "saved_model/culture_features.pkl"
+culture_features = joblib.load("saved_model/culture_features.pkl")
+
+# ==============================
+# Page Config
+# ==============================
+
+st.set_page_config(
+    page_title="Fake News Detection",
+    page_icon="🧠",
+    layout="wide"
 )
 
-# -------------------------------------------------
-# Cultural keywords
-# -------------------------------------------------
+# ==============================
+# Theme Styling
+# ==============================
 
-CULTURE_KEYWORDS = {
+st.markdown("""
+<style>
+.stApp {
+    background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);
+    color: white;
+}
 
-    "politics": [
+.stButton>button {
+    border-radius: 8px;
+    padding: 10px 20px;
+}
 
-        "government",
-        "minister",
-        "prime minister",
-        "president",
-        "parliament",
-        "policy",
-        "election",
-        "vote",
-        "campaign",
-        "democracy",
-        "constitution",
-        "cabinet",
-        "senate",
-        "assembly",
-        "governor",
-        "political party",
-        "law",
-        "legislation",
-        "regulation"
+</style>
+""", unsafe_allow_html=True)
 
+# ==============================
+# Title
+# ==============================
+
+st.title("AI-Powered Fake News Detection with Cultural Context Analysis")
+
+st.write(
+"This system analyzes news text using machine learning and cultural indicators."
+)
+
+# ==============================
+# Feature Labels
+# ==============================
+
+FEATURE_LABELS = {
+
+    "religion_count": "Religious references",
+    "political_symbol_count": "Political symbols",
+    "regional_identity_count": "Regional identity references",
+    "community_tension_count": "Community tension indicators",
+    "health_belief_count": "Health belief claims",
+    "festival_count": "Festival references",
+    "national_identity_count": "National identity references",
+
+    "has_religion": "Religion mentioned",
+    "has_political_symbol": "Political symbol mentioned",
+    "has_regional_identity": "Regional identity mentioned",
+    "has_community_tension": "Community tension mentioned",
+    "has_health_belief": "Health belief mentioned",
+    "has_festival": "Festival mentioned",
+    "has_national_identity": "Nation/Country mentioned"
+
+}
+
+# ==============================
+# Keyword Dictionary
+# ==============================
+
+FEATURE_KEYWORDS = {
+
+    "religion": [
+        "temple","mosque","church","hindu","muslim","christian",
+        "religion","faith"
     ],
 
-    "country": [
+    "political": [
+        "election","vote","minister","government",
+        "parliament","party","policy"
+    ],
 
-        "india",
-        "china",
-        "usa",
-        "america",
-        "pakistan",
-        "iran",
-        "russia",
-        "uk",
-        "united kingdom",
-        "france",
-        "germany",
-        "japan",
-        "bangladesh",
-        "nepal",
-        "sri lanka",
-        "canada",
-        "australia"
+    "regional": [
+        "region","border","territory","state"
+    ],
 
+    "community": [
+        "riot","clash","violence","tension",
+        "conflict","attack"
     ],
 
     "health": [
-
-        "vaccine",
-        "vaccination",
-        "covid",
-        "coronavirus",
-        "virus",
-        "disease",
-        "infection",
-        "hospital",
-        "doctor",
-        "medicine",
-        "treatment",
-        "pandemic",
-        "epidemic",
-        "health",
-        "clinic",
-        "immunity",
-        "symptoms",
-        "medical"
-
+        "vaccine","virus","covid",
+        "disease","cure","medicine"
     ],
 
-    "religion": [
-
-        "hindu",
-        "muslim",
-        "christian",
-        "islam",
-        "temple",
-        "mosque",
-        "church",
-        "prayer",
-        "festival",
-        "ritual",
-        "god",
-        "religion",
-        "faith",
-        "spiritual",
-        "pilgrimage",
-        "holy",
-        "sacred"
-
+    "festival": [
+        "diwali","eid","christmas","festival"
     ],
 
-    "economy": [
-
-        "inflation",
-        "gdp",
-        "economy",
-        "tax",
-        "budget",
-        "revenue",
-        "investment",
-        "stock",
-        "market",
-        "finance",
-        "bank",
-        "interest rate",
-        "currency",
-        "trade",
-        "import",
-        "export",
-        "economic",
-        "unemployment"
-
-    ],
-
-    "technology": [
-
-        "ai",
-        "artificial intelligence",
-        "technology",
-        "software",
-        "internet",
-        "cyber",
-        "data",
-        "algorithm",
-        "digital",
-        "robot",
-        "automation",
-        "machine learning",
-        "blockchain",
-        "cloud",
-        "app",
-        "system",
-        "network"
-
-    ],
-
-    "media": [
-
-        "news",
-        "report",
-        "media",
-        "journalist",
-        "broadcast",
-        "press",
-        "headline",
-        "article",
-        "channel",
-        "newspaper",
-        "tv",
-        "radio",
-        "social media",
-        "facebook",
-        "twitter",
-        "youtube",
-        "viral"
-
-    ],
-
-    "security": [
-
-        "war",
-        "military",
-        "army",
-        "soldier",
-        "attack",
-        "terror",
-        "terrorism",
-        "weapon",
-        "defense",
-        "security",
-        "border",
-        "missile",
-        "bomb",
-        "conflict",
-        "violence",
-        "threat"
-
-    ],
-
-    "education": [
-
-        "school",
-        "university",
-        "college",
-        "student",
-        "teacher",
-        "education",
-        "exam",
-        "curriculum",
-        "degree",
-        "learning",
-        "classroom",
-        "academic",
-        "research",
-        "scholarship"
-
-    ],
-
-    "environment": [
-
-        "climate",
-        "pollution",
-        "environment",
-        "weather",
-        "temperature",
-        "rain",
-        "flood",
-        "earthquake",
-        "drought",
-        "forest",
-        "wildlife",
-        "nature",
-        "global warming",
-        "carbon",
-        "emission"
-
+    "national": [
+        "india","indian","nation",
+        "country","citizen"
     ]
 
 }
 
-# -------------------------------------------------
-# Header
-# -------------------------------------------------
+# ==============================
+# Text Cleaning
+# ==============================
 
-st.title("📰 Cross-Lingual Fake News Detection")
+def clean_text(text):
 
-st.subheader(
-    "AI-powered verification with Cultural Context Analysis"
-)
+    text = text.lower()
+    text = re.sub(r"[^a-zA-Z\s]", " ", text)
 
-st.markdown(
-    "This system analyzes news text using machine learning "
-    "to determine whether it is **Fake** or **Real**."
-)
+    return text
 
-st.divider()
 
-# -------------------------------------------------
-# Sidebar
-# -------------------------------------------------
+# ==============================
+# Cultural Feature Detection
+# ==============================
 
-st.sidebar.title("About This System")
+def detect_cultural_features(text):
 
-st.sidebar.write(
-    """
-• Machine Learning  
-• Text Features  
-• Cultural Context Analysis  
-• Explainable AI (XAI)
-"""
-)
+    text = text.lower()
 
-st.sidebar.write("Model: Random Forest")
+    features = {f: 0 for f in culture_features}
 
-# -------------------------------------------------
-# Example buttons
-# -------------------------------------------------
+    def count_keywords(keywords):
+        return sum(1 for word in keywords if word in text)
 
-st.subheader("Try Example News")
-
-col1, col2 = st.columns(2)
-
-with col1:
-
-    if st.button("Load Real News Example"):
-
-        st.session_state.user_text = (
-            "The Reserve Bank of India announced a revision "
-            "in repo rates to control inflation."
+    if "religion_count" in features:
+        features["religion_count"] = count_keywords(
+            FEATURE_KEYWORDS["religion"]
         )
 
-with col2:
-
-    if st.button("Load Fake News Example"):
-
-        st.session_state.user_text = (
-            "Scientists confirm drinking bleach cures all diseases instantly."
+    if "political_symbol_count" in features:
+        features["political_symbol_count"] = count_keywords(
+            FEATURE_KEYWORDS["political"]
         )
 
-# -------------------------------------------------
-# Input box
-# -------------------------------------------------
+    if "regional_identity_count" in features:
+        features["regional_identity_count"] = count_keywords(
+            FEATURE_KEYWORDS["regional"]
+        )
 
-user_text = st.text_area(
-    "Enter News Text",
-    height=180,
-    value=st.session_state.user_text,
-    placeholder="Paste news headline or article here..."
+    if "community_tension_count" in features:
+        features["community_tension_count"] = count_keywords(
+            FEATURE_KEYWORDS["community"]
+        )
+
+    if "health_belief_count" in features:
+        features["health_belief_count"] = count_keywords(
+            FEATURE_KEYWORDS["health"]
+        )
+
+    if "festival_count" in features:
+        features["festival_count"] = count_keywords(
+            FEATURE_KEYWORDS["festival"]
+        )
+
+    if "national_identity_count" in features:
+        features["national_identity_count"] = count_keywords(
+            FEATURE_KEYWORDS["national"]
+        )
+
+    # Boolean indicators
+
+    if "has_religion" in features:
+        features["has_religion"] = int(
+            features.get("religion_count",0) > 0
+        )
+
+    if "has_political_symbol" in features:
+        features["has_political_symbol"] = int(
+            features.get("political_symbol_count",0) > 0
+        )
+
+    if "has_regional_identity" in features:
+        features["has_regional_identity"] = int(
+            features.get("regional_identity_count",0) > 0
+        )
+
+    if "has_community_tension" in features:
+        features["has_community_tension"] = int(
+            features.get("community_tension_count",0) > 0
+        )
+
+    if "has_health_belief" in features:
+        features["has_health_belief"] = int(
+            features.get("health_belief_count",0) > 0
+        )
+
+    if "has_festival" in features:
+        features["has_festival"] = int(
+            features.get("festival_count",0) > 0
+        )
+
+    if "has_national_identity" in features:
+        features["has_national_identity"] = int(
+            features.get("national_identity_count",0) > 0
+        )
+
+    return features
+
+
+# ==============================
+# Top Influential Words
+# ==============================
+
+def get_top_words(vectorizer, vector, top_n=5):
+
+    feature_names = vectorizer.get_feature_names_out()
+
+    sorted_indices = vector.toarray()[0].argsort()[::-1]
+
+    top_words = [
+        feature_names[i]
+        for i in sorted_indices[:top_n]
+        if vector.toarray()[0][i] > 0
+    ]
+
+    return top_words
+
+
+# ==============================
+# UI Input
+# ==============================
+
+st.header("Enter News Text")
+
+news_text = st.text_area(
+    "Paste news headline or article",
+    height=200
 )
 
-st.session_state.user_text = user_text
-
-# -------------------------------------------------
-# Cultural feature detection (robust)
-# -------------------------------------------------
-def get_culture_features(text):
-
-    text_lower = text.lower()
-
-    detected_features = []
-    features = []
-
-    # Exact mapping aligned with your model feature names
-
-    FEATURE_KEYWORDS = {
-
-        "religion": [
-            "hindu", "muslim", "christian",
-            "temple", "mosque", "church",
-            "religion", "faith"
-        ],
-
-        "political": [
-            "government", "minister",
-            "election", "vote", "party"
-        ],
-
-        "regional": [
-            "state", "region", "border",
-            "territory", "province"
-        ],
-
-        "community": [
-            "conflict", "riot",
-            "clash", "tension", "violence"
-        ],
-
-        "health": [
-            "vaccine", "virus",
-            "covid", "disease",
-            "medicine", "cure"
-        ],
-
-        "festival": [
-            "festival", "diwali",
-            "eid", "christmas"
-        ],
-
-        "national": [
-            "india", "nation",
-            "country", "citizen"
-        ]
-
-    }
-
-    for feature in culture_features:
-
-        feature_lower = feature.lower()
-
-        matched = False
-
-        for key, words in FEATURE_KEYWORDS.items():
-
-            if key in feature_lower:
-
-                for word in words:
-
-                    if word in text_lower:
-
-                        matched = True
-                        break
-
-        features.append(1 if matched else 0)
-
-        if matched:
-
-            detected_features.append(feature)
-
-    return (
-        np.array(features).reshape(1, -1),
-        detected_features
-    )
-# -------------------------------------------------
+# ==============================
 # Prediction
-# -------------------------------------------------
+# ==============================
 
 if st.button("Predict"):
 
-    if st.session_state.user_text.strip() == "":
+    if news_text.strip() == "":
 
         st.warning("Please enter news text.")
 
@@ -497,93 +261,93 @@ if st.button("Predict"):
 
         try:
 
-            with st.spinner(
-                "Analyzing news content..."
-            ):
+            clean = clean_text(news_text)
 
-                text_vector = vectorizer.transform(
-                    [st.session_state.user_text]
+            text_vector = vectorizer.transform([clean])
+
+            cultural_dict = detect_cultural_features(clean)
+
+            cultural_df = pd.DataFrame(
+                [cultural_dict]
+            )
+
+            cultural_scaled = scaler.transform(
+                cultural_df
+            )
+
+            final_features = np.hstack(
+                (
+                    text_vector.toarray(),
+                    cultural_scaled
                 )
+            )
 
-                culture_vector, detected_features = \
-                    get_culture_features(
-                        st.session_state.user_text
-                    )
+            prediction = model.predict(
+                final_features
+            )[0]
 
-                if culture_vector.shape[1] == scaler.n_features_in_:
-                    culture_vector = scaler.transform(
-                        culture_vector
-                    )
+            probs = model.predict_proba(
+                final_features
+            )[0]
 
-                combined = np.hstack(
-                    (
-                        text_vector.toarray(),
-                        culture_vector
-                    )
+            # Mapping
+            label = "FAKE" if prediction == 1 else "REAL"
+
+            confidence = max(probs)
+
+            if label == "REAL":
+
+                st.success(
+                    f"Prediction: {label}"
                 )
-
-                prediction = int(
-                    model.predict(combined)[0]
-                )
-
-                probability = model.predict_proba(
-                    combined
-                )[0]
-
-                confidence = round(
-                    max(probability) * 100,
-                    2
-                )
-
-                real_prob = round(
-                    probability[0] * 100,
-                    2
-                )
-
-                fake_prob = round(
-                    probability[1] * 100,
-                    2
-                )
-
-            # -------------------------------------------------
-            # Prediction result
-            # -------------------------------------------------
-
-            if prediction == 1:
-
-                st.error("🚨 Prediction: FAKE")
 
             else:
 
-                st.success("✅ Prediction: REAL")
+                st.error(
+                    f"Prediction: {label}"
+                )
 
             st.write(
-                f"Confidence: {confidence}%"
+                f"Confidence: {confidence:.2%}"
             )
 
-            st.progress(confidence / 100)
-
-            st.write(
-                f"Fake Probability: {fake_prob}%"
+            st.progress(
+                float(confidence)
             )
 
             st.write(
-                f"Real Probability: {real_prob}%"
+                f"Fake Probability: {probs[1]:.2%}"
             )
 
-            # -------------------------------------------------
-            # Cultural features display
-            # -------------------------------------------------
+            st.write(
+                f"Real Probability: {probs[0]:.2%}"
+            )
 
-            st.subheader(
+            # ==========================
+            # Cultural Features Display
+            # ==========================
+
+            st.header(
                 "Detected Cultural Features"
             )
 
-            if detected_features:
+            detected = [
+                f for f,v in cultural_dict.items()
+                if v > 0
+            ]
 
-                for f in detected_features:
+            if detected:
 
-                    st.write("•", f)
+                for f in detected:
+
+                    label_name = FEATURE_LABELS.get(
+                        f,
+                        f
+                    )
+
+                    st.write(
+                        f"• {label_name}"
+                    )
 
             else:
 
@@ -591,110 +355,30 @@ if st.button("Predict"):
                     "No cultural indicators detected."
                 )
 
-            # -------------------------------------------------
-            # Top Influential Words (dynamic)
-            # -------------------------------------------------
+            # ==========================
+            # Influential Words
+            # ==========================
 
-            st.subheader(
+            st.header(
                 "Top Influential Words"
             )
 
-            tfidf_vector = vectorizer.transform(
-                [st.session_state.user_text]
+            top_words = get_top_words(
+                vectorizer,
+                text_vector
             )
-
-            feature_names = \
-                vectorizer.get_feature_names_out()
-
-            scores = tfidf_vector.toarray()[0]
-
-            top_indices = scores.argsort()[::-1]
-
-            top_words = []
-
-            for idx in top_indices:
-
-                word = feature_names[idx]
-
-                if scores[idx] > 0:
-
-                    if word not in [
-                        "token_count",
-                        "unique_token_count",
-                        "lexical_diversity"
-                    ]:
-
-                        top_words.append(word)
-
-                if len(top_words) == 5:
-                    break
-
-            # fallback protection
-
-            if not top_words:
-
-                nonzero_indices = np.where(scores > 0)[0]
-
-                for idx in nonzero_indices[:5]:
-
-                    top_words.append(
-                        feature_names[idx]
-                    )
 
             for word in top_words:
 
-                st.write("•", word)
+                st.write(
+                    f"• {word}"
+                )
 
-            # -------------------------------------------------
-            # Warning
-            # -------------------------------------------------
-
-            if confidence < 60:
+            if confidence < 0.6:
 
                 st.warning(
                     "Low confidence prediction — result may be unreliable."
                 )
-
-            # -------------------------------------------------
-            # Download report
-            # -------------------------------------------------
-
-            report = f"""
-Fake News Detection Report
-
-News Text:
-{st.session_state.user_text}
-
-Prediction:
-{"FAKE" if prediction == 1 else "REAL"}
-
-Confidence:
-{confidence}%
-
-Fake Probability:
-{fake_prob}%
-
-Real Probability:
-{real_prob}%
-
-Detected Cultural Features:
-{', '.join(detected_features) if detected_features else 'None'}
-
-Generated:
-{datetime.now()}
-"""
-
-            st.download_button(
-
-                label="Download Report",
-
-                data=report,
-
-                file_name="prediction_report.txt",
-
-                mime="text/plain"
-
-            )
 
         except Exception as e:
 
@@ -703,13 +387,3 @@ Generated:
             )
 
             st.write(str(e))
-
-# -------------------------------------------------
-# Footer
-# -------------------------------------------------
-
-st.divider()
-
-st.caption(
-    "Cross-Lingual Fake News Detection with Cultural Context Analysis | 2026"
-)
