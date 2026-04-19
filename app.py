@@ -16,14 +16,14 @@ st.set_page_config(
 )
 
 # -----------------------------
-# Session state setup
+# Session state
 # -----------------------------
 
 if "user_text" not in st.session_state:
     st.session_state.user_text = ""
 
 # -----------------------------
-# Theme toggle (FIXED)
+# Theme toggle (working)
 # -----------------------------
 
 theme = st.sidebar.selectbox(
@@ -86,7 +86,7 @@ if not os.path.exists(MODEL_PATH):
     )
 
 # -----------------------------
-# Load model
+# Load components
 # -----------------------------
 
 model = joblib.load("saved_model/model.pkl")
@@ -131,7 +131,7 @@ st.sidebar.write(
 st.sidebar.write("Model: Random Forest")
 
 # -----------------------------
-# Example buttons (FIXED)
+# Example buttons (working)
 # -----------------------------
 
 st.subheader("Try Example News")
@@ -143,8 +143,8 @@ with col1:
     if st.button("Load Real News Example"):
 
         st.session_state.user_text = (
-            "The Reserve Bank of India announced "
-            "a revision in repo rates to control inflation."
+            "The Reserve Bank of India announced a revision "
+            "in repo rates to control inflation."
         )
 
 with col2:
@@ -152,8 +152,7 @@ with col2:
     if st.button("Load Fake News Example"):
 
         st.session_state.user_text = (
-            "Scientists confirm drinking bleach "
-            "cures all diseases instantly."
+            "Scientists confirm drinking bleach cures all diseases instantly."
         )
 
 # -----------------------------
@@ -167,7 +166,6 @@ user_text = st.text_area(
     placeholder="Paste news headline or article here..."
 )
 
-# keep state updated
 st.session_state.user_text = user_text
 
 # -----------------------------
@@ -245,27 +243,28 @@ if st.button("Predict"):
                     2
                 )
 
-                fake_prob = round(
+                # CORRECT probability mapping
+                real_prob = round(
                     probability[0] * 100,
                     2
                 )
 
-                real_prob = round(
+                fake_prob = round(
                     probability[1] * 100,
                     2
                 )
 
             # -----------------------------
-            # Result
+            # Correct label mapping
             # -----------------------------
 
             if prediction == 1:
 
-                st.success("✅ Prediction: REAL")
+                st.error("🚨 Prediction: FAKE")
 
             else:
 
-                st.error("🚨 Prediction: FAKE")
+                st.success("✅ Prediction: REAL")
 
             st.write(
                 f"Confidence: {confidence}%"
@@ -354,10 +353,16 @@ News Text:
 {st.session_state.user_text}
 
 Prediction:
-{"REAL" if prediction == 1 else "FAKE"}
+{"FAKE" if prediction == 1 else "REAL"}
 
 Confidence:
 {confidence}%
+
+Fake Probability:
+{fake_prob}%
+
+Real Probability:
+{real_prob}%
 
 Generated:
 {datetime.now()}
