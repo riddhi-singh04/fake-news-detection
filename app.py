@@ -181,16 +181,29 @@ def get_culture_features(text):
 
     for feature in culture_features:
 
-        if feature.lower() in text_lower:
+        matched = False
 
-            features.append(1)
-            detected.append(feature)
+        if feature.lower() in CULTURE_KEYWORDS:
 
-        else:
+            for word in CULTURE_KEYWORDS[
+                feature.lower()
+            ]:
 
-            features.append(0)
+                if word in text_lower:
 
-    return np.array(features).reshape(1, -1), detected
+                    matched = True
+                    detected.append(feature)
+
+                    break
+
+        features.append(
+            1 if matched else 0
+        )
+
+    return (
+        np.array(features).reshape(1, -1),
+        detected
+    )
 
 # -----------------------------
 # Prediction
