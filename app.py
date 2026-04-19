@@ -408,27 +408,6 @@ st.session_state.user_text = user_text
 # -------------------------------------------------
 
 def get_culture_features(text):
-
-    text_lower = text.lower()
-
-    detected = []
-    features = []
-
-    detected_categories = []
-
-    for category, words in CULTURE_KEYWORDS.items():
-
-        for word in words:
-
-            if word in text_lower:
-
-                detected_categories.append(category)
-                break
-
-    # IMPORTANT: match model feature schema
-
-    def get_culture_features(text):
-
     text_lower = text.lower()
 
     detected_categories = []
