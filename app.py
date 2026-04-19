@@ -96,6 +96,228 @@ culture_features = joblib.load(
     "saved_model/culture_features.pkl"
 )
 
+CULTURE_KEYWORDS = {
+
+    "politics": [
+
+        "government",
+        "minister",
+        "prime minister",
+        "president",
+        "parliament",
+        "policy",
+        "election",
+        "vote",
+        "campaign",
+        "democracy",
+        "constitution",
+        "cabinet",
+        "senate",
+        "assembly",
+        "governor",
+        "political party",
+        "law",
+        "legislation",
+        "regulation"
+
+    ],
+
+    "country": [
+
+        "india",
+        "china",
+        "usa",
+        "america",
+        "pakistan",
+        "iran",
+        "russia",
+        "uk",
+        "united kingdom",
+        "france",
+        "germany",
+        "japan",
+        "bangladesh",
+        "nepal",
+        "sri lanka",
+        "canada",
+        "australia"
+
+    ],
+
+    "health": [
+
+        "vaccine",
+        "vaccination",
+        "covid",
+        "coronavirus",
+        "virus",
+        "disease",
+        "infection",
+        "hospital",
+        "doctor",
+        "medicine",
+        "treatment",
+        "pandemic",
+        "epidemic",
+        "health",
+        "clinic",
+        "immunity",
+        "symptoms",
+        "medical"
+
+    ],
+
+    "religion": [
+
+        "hindu",
+        "muslim",
+        "christian",
+        "islam",
+        "temple",
+        "mosque",
+        "church",
+        "prayer",
+        "festival",
+        "ritual",
+        "god",
+        "religion",
+        "faith",
+        "spiritual",
+        "pilgrimage",
+        "holy",
+        "sacred"
+
+    ],
+
+    "economy": [
+
+        "inflation",
+        "gdp",
+        "economy",
+        "tax",
+        "budget",
+        "revenue",
+        "investment",
+        "stock",
+        "market",
+        "finance",
+        "bank",
+        "interest rate",
+        "currency",
+        "trade",
+        "import",
+        "export",
+        "economic",
+        "unemployment"
+
+    ],
+
+    "technology": [
+
+        "ai",
+        "artificial intelligence",
+        "technology",
+        "software",
+        "internet",
+        "cyber",
+        "data",
+        "algorithm",
+        "digital",
+        "robot",
+        "automation",
+        "machine learning",
+        "blockchain",
+        "cloud",
+        "app",
+        "system",
+        "network"
+
+    ],
+
+    "media": [
+
+        "news",
+        "report",
+        "media",
+        "journalist",
+        "broadcast",
+        "press",
+        "headline",
+        "article",
+        "channel",
+        "newspaper",
+        "tv",
+        "radio",
+        "social media",
+        "facebook",
+        "twitter",
+        "youtube",
+        "viral"
+
+    ],
+
+    "security": [
+
+        "war",
+        "military",
+        "army",
+        "soldier",
+        "attack",
+        "terror",
+        "terrorism",
+        "weapon",
+        "defense",
+        "security",
+        "border",
+        "missile",
+        "bomb",
+        "conflict",
+        "violence",
+        "threat"
+
+    ],
+
+    "education": [
+
+        "school",
+        "university",
+        "college",
+        "student",
+        "teacher",
+        "education",
+        "exam",
+        "curriculum",
+        "degree",
+        "learning",
+        "classroom",
+        "academic",
+        "research",
+        "scholarship"
+
+    ],
+
+    "environment": [
+
+        "climate",
+        "pollution",
+        "environment",
+        "weather",
+        "temperature",
+        "rain",
+        "flood",
+        "earthquake",
+        "drought",
+        "forest",
+        "wildlife",
+        "nature",
+        "global warming",
+        "carbon",
+        "emission"
+
+    ]
+
+}
+
 # -----------------------------
 # Header
 # -----------------------------
