@@ -186,93 +186,125 @@ def get_culture_features(text):
     text_lower = text.lower()
 
     features = {f: 0 for f in culture_features}
-
     detected = []
 
     # -------------------------
-    # Keyword dictionaries
+    # Expanded keyword mapping
     # -------------------------
 
     keyword_map = {
 
         "national_identity_count": [
-            "india", "indian", "nation",
-            "country", "citizen", "government"
-        ],
-
-        "religion_count": [
-            "temple", "mosque", "church",
-            "hindu", "muslim", "christian",
-            "religion"
-        ],
-
-        "community_tension_count": [
-            "riot", "clash", "violence",
-            "conflict", "attack", "tension"
+            "india","indian","nation","country",
+            "citizen","government","state",
+            "reserve bank","central bank"
         ],
 
         "health_belief_count": [
-            "vaccine", "virus", "covid",
-            "disease", "cure", "medicine"
+            "cure","treatment","medicine",
+            "vaccine","virus","covid",
+            "disease","health","remedy",
+            "miracle","instant","heal"
         ],
 
-        "festival_count": [
-            "diwali", "eid",
-            "christmas", "festival"
+        "religion_count": [
+            "temple","mosque","church",
+            "religion","faith",
+            "hindu","muslim","christian",
+            "festival","ritual"
+        ],
+
+        "community_tension_count": [
+            "riot","clash","violence",
+            "conflict","attack",
+            "tension","protest","fight"
         ],
 
         "political_symbol_count": [
-            "election", "vote", "minister",
-            "parliament", "party", "policy"
+            "election","vote","minister",
+            "parliament","policy",
+            "government","campaign"
         ],
 
         "regional_identity_count": [
-            "region", "border",
-            "territory", "state"
+            "region","border","territory",
+            "state","district","province"
         ],
 
         "law_order_count": [
-            "police", "crime",
-            "arrest", "court",
-            "law", "justice"
+            "police","crime","arrest",
+            "court","law","justice",
+            "investigation"
         ],
 
         "education_count": [
-            "school", "college",
-            "university", "student",
-            "teacher", "education"
+            "school","college",
+            "university","student",
+            "teacher","education"
         ],
 
         "gender_count": [
-            "woman", "women",
-            "man", "men",
-            "gender", "female",
-            "male"
+            "woman","women",
+            "man","men",
+            "female","male",
+            "gender"
         ],
 
-        "culture_dependency_score_x": [
-            "culture", "tradition",
-            "community", "society"
-        ],
-
-        "frame_public_health_anxiety": [
-            "pandemic", "outbreak",
-            "health crisis",
-            "public health"
-        ],
-
-        "frame_election_polarization": [
-            "election", "campaign",
-            "political tension",
-            "polarization"
-        ],
-
-        "frame_identity_threat": [
-            "threat", "identity",
-            "security risk"
+        "festival_count": [
+            "festival","diwali",
+            "eid","christmas"
         ]
 
     }
+
+    # -------------------------
+    # Count features
+    # -------------------------
+
+    for feature_name, keywords in keyword_map.items():
+
+        if feature_name in features:
+
+            count = sum(
+                1 for word in keywords
+                if word in text_lower
+            )
+
+            features[feature_name] = count
+
+            if count > 0:
+                detected.append(feature_name)
+
+    # -------------------------
+    # Boolean flags
+    # -------------------------
+
+    for key in features:
+
+        if key.startswith("has_"):
+
+            base = key.replace(
+                "has_", ""
+            ) + "_count"
+
+            if base in features:
+
+                features[key] = int(
+                    features[base] > 0
+                )
+
+                if features[key] == 1:
+                    detected.append(key)
+
+    # -------------------------
+    # Keep correct feature order
+    # -------------------------
+
+    vector = np.array(
+        [features[f] for f in culture_features]
+    ).reshape(1, -1)
+
+    return vector, detected
 
     # -------------------------
     # Count features
