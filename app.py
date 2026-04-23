@@ -23,7 +23,7 @@ if "user_text" not in st.session_state:
     st.session_state.user_text = ""
 
 # -------------------------------------------------
-# Theme toggle (UNCHANGED)
+# Theme toggle 
 # -------------------------------------------------
 
 theme = st.sidebar.selectbox(
@@ -106,7 +106,7 @@ culture_features = joblib.load(
 )
 
 # -------------------------------------------------
-# Header (UNCHANGED)
+# Header 
 # -------------------------------------------------
 
 st.title("📰 Cross-Lingual Fake News Detection")
@@ -123,7 +123,7 @@ st.markdown(
 st.divider()
 
 # -------------------------------------------------
-# Sidebar (UNCHANGED)
+# Sidebar
 # -------------------------------------------------
 
 st.sidebar.title("About This System")
@@ -140,7 +140,7 @@ st.sidebar.write(
 st.sidebar.write("Model: Random Forest")
 
 # -------------------------------------------------
-# Example buttons (UNCHANGED)
+# Example buttons 
 # -------------------------------------------------
 
 st.subheader("Try Example News")
@@ -165,7 +165,7 @@ with col2:
         )
 
 # -------------------------------------------------
-# Input box (UNCHANGED)
+# Input box 
 # -------------------------------------------------
 
 user_text = st.text_area(
@@ -178,7 +178,7 @@ user_text = st.text_area(
 st.session_state.user_text = user_text
 
 # -------------------------------------------------
-# Cultural feature detection (FIXED ONLY HERE)
+# Cultural feature detection 
 # -------------------------------------------------
 
 def get_culture_features(text):
@@ -297,7 +297,7 @@ def get_culture_features(text):
                     detected.append(key)
 
     # -------------------------
-    # Keep correct feature order
+    # correct feature order
     # -------------------------
 
     vector = np.array(
@@ -423,7 +423,7 @@ def get_culture_features(text):
     return vector, detected
 
 # -------------------------------------------------
-# Prediction (UNCHANGED)
+# Prediction 
 # -------------------------------------------------
 
 if st.button("Predict"):
@@ -627,7 +627,7 @@ Generated:
             st.write(str(e))
 
 # -------------------------------------------------
-# Footer (UNCHANGED)
+# Footer 
 # -------------------------------------------------
 
 st.divider()
