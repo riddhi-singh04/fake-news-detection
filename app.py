@@ -109,7 +109,7 @@ culture_features = joblib.load(
 # Header 
 # -------------------------------------------------
 
-st.title("📰 Cross-Lingual Fake News Detection")
+st.title("📰 Fake News Verification Engine")
 
 st.subheader(
     "AI-powered verification with Cultural Context Analysis"
@@ -633,5 +633,5 @@ Generated:
 st.divider()
 
 st.caption(
-    "Cross-Lingual Fake News Detection with Cultural Context Analysis | 2026"
+    "B.Sc. Final Year Project | 2026"
 )
