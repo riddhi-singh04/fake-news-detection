@@ -5,6 +5,12 @@ import os
 import gdown
 from datetime import datetime
 
+import torch
+from transformers import (
+    AutoTokenizer,
+    AutoModelForSequenceClassification
+)
+
 # -------------------------------------------------
 # Page configuration
 # -------------------------------------------------
@@ -23,7 +29,7 @@ if "user_text" not in st.session_state:
     st.session_state.user_text = ""
 
 # -------------------------------------------------
-# Theme toggle 
+# Theme toggle
 # -------------------------------------------------
 
 theme = st.sidebar.selectbox(
@@ -95,7 +101,7 @@ if not os.path.exists(MODEL_PATH):
     )
 
 # -------------------------------------------------
-# Load components
+# Load classical model
 # -------------------------------------------------
 
 model = joblib.load("saved_model/model.pkl")
@@ -106,7 +112,53 @@ culture_features = joblib.load(
 )
 
 # -------------------------------------------------
-# Header 
+# Load transformer models
+# -------------------------------------------------
+
+@st.cache_resource
+def load_transformers():
+
+    device = torch.device("cpu")
+
+    mb_tokenizer = AutoTokenizer.from_pretrained(
+        "transformers/mbert"
+    )
+
+    mb_model = AutoModelForSequenceClassification.from_pretrained(
+        "transformers/mbert"
+    )
+
+    mb_model.to(device)
+    mb_model.eval()
+
+    xlm_tokenizer = AutoTokenizer.from_pretrained(
+        "transformers/xlmr"
+    )
+
+    xlm_model = AutoModelForSequenceClassification.from_pretrained(
+        "transformers/xlmr"
+    )
+
+    xlm_model.to(device)
+    xlm_model.eval()
+
+    return (
+        mb_model,
+        mb_tokenizer,
+        xlm_model,
+        xlm_tokenizer
+    )
+
+
+(
+    mb_model,
+    mb_tokenizer,
+    xlm_model,
+    xlm_tokenizer
+) = load_transformers()
+
+# -------------------------------------------------
+# Header
 # -------------------------------------------------
 
 st.title("📰 Fake News Verification Engine")
@@ -115,32 +167,25 @@ st.subheader(
     "AI-powered verification with Cultural Context Analysis"
 )
 
-st.markdown(
-    "This system analyzes news text using machine learning "
-    "to determine whether it is **Fake** or **Real**."
-)
-
 st.divider()
 
 # -------------------------------------------------
-# Sidebar
+# Model selector
 # -------------------------------------------------
 
-st.sidebar.title("About This System")
+model_choice = st.selectbox(
 
-st.sidebar.write(
-    """
-• Machine Learning  
-• Text Features  
-• Cultural Context Analysis  
-• Explainable AI (XAI)
-"""
+    "Select Model",
+
+    [
+        "RandomForest",
+        "mBERT",
+        "XLM-RoBERTa"
+    ]
 )
 
-st.sidebar.write("Model: Random Forest")
-
 # -------------------------------------------------
-# Example buttons 
+# Example buttons
 # -------------------------------------------------
 
 st.subheader("Try Example News")
@@ -165,20 +210,19 @@ with col2:
         )
 
 # -------------------------------------------------
-# Input box 
+# Input
 # -------------------------------------------------
 
 user_text = st.text_area(
     "Enter News Text",
     height=180,
-    value=st.session_state.user_text,
-    placeholder="Paste news headline or article here..."
+    value=st.session_state.user_text
 )
 
 st.session_state.user_text = user_text
 
 # -------------------------------------------------
-# Cultural feature detection 
+# Cultural features
 # -------------------------------------------------
 
 def get_culture_features(text):
@@ -186,80 +230,28 @@ def get_culture_features(text):
     text_lower = text.lower()
 
     features = {f: 0 for f in culture_features}
-    detected = []
-
-    # -------------------------
-    # Expanded keyword mapping
-    # -------------------------
 
     keyword_map = {
 
         "national_identity_count": [
-            "india","indian","nation","country",
-            "citizen","government","state",
-            "reserve bank","central bank"
+            "india","country","nation"
         ],
 
         "health_belief_count": [
-            "cure","treatment","medicine",
-            "vaccine","virus","covid",
-            "disease","health","remedy",
-            "miracle","instant","heal"
-        ],
-
-        "religion_count": [
-            "temple","mosque","church",
-            "religion","faith",
-            "hindu","muslim","christian",
-            "festival","ritual"
+            "cure","disease","virus"
         ],
 
         "community_tension_count": [
-            "riot","clash","violence",
-            "conflict","attack",
-            "tension","protest","fight"
-        ],
-
-        "political_symbol_count": [
-            "election","vote","minister",
-            "parliament","policy",
-            "government","campaign"
-        ],
-
-        "regional_identity_count": [
-            "region","border","territory",
-            "state","district","province"
-        ],
-
-        "law_order_count": [
-            "police","crime","arrest",
-            "court","law","justice",
-            "investigation"
+            "riot","violence","attack"
         ],
 
         "education_count": [
-            "school","college",
-            "university","student",
-            "teacher","education"
-        ],
-
-        "gender_count": [
-            "woman","women",
-            "man","men",
-            "female","male",
-            "gender"
-        ],
-
-        "festival_count": [
-            "festival","diwali",
-            "eid","christmas"
+            "school","college","university"
         ]
 
     }
 
-    # -------------------------
-    # Count features
-    # -------------------------
+    detected = []
 
     for feature_name, keywords in keyword_map.items():
 
@@ -274,10 +266,6 @@ def get_culture_features(text):
 
             if count > 0:
                 detected.append(feature_name)
-
-    # -------------------------
-    # Boolean flags
-    # -------------------------
 
     for key in features:
 
@@ -296,126 +284,6 @@ def get_culture_features(text):
                 if features[key] == 1:
                     detected.append(key)
 
-    # -------------------------
-    # correct feature order
-    # -------------------------
-
-    vector = np.array(
-        [features[f] for f in culture_features]
-    ).reshape(1, -1)
-
-    return vector, detected
-
-    # -------------------------
-    # Count features
-    # -------------------------
-
-    for feature_name, keywords in keyword_map.items():
-
-        if feature_name in features:
-
-            count = sum(
-                1 for word in keywords
-                if word in text_lower
-            )
-
-            features[feature_name] = count
-
-            if count > 0:
-                detected.append(feature_name)
-
-    # -------------------------
-    # Boolean flags
-    # -------------------------
-
-    for key in features:
-
-        if key.startswith("has_"):
-
-            base = key.replace("has_", "") + "_count"
-
-            if base in features:
-
-                features[key] = int(
-                    features[base] > 0
-                )
-
-                if features[key] == 1:
-                    detected.append(key)
-
-    # -------------------------
-    # Preserve correct order
-    # -------------------------
-
-    vector = np.array(
-        [features[f] for f in culture_features]
-    ).reshape(1, -1)
-
-    return vector, detected
-    def count_keywords(keywords):
-        return sum(1 for word in keywords if word in text_lower)
-
-    # Counts
-
-    if "national_identity_count" in features:
-        count = count_keywords(national_keywords)
-        features["national_identity_count"] = count
-        if count > 0:
-            detected.append("national_identity_count")
-
-    if "religion_count" in features:
-        count = count_keywords(religion_keywords)
-        features["religion_count"] = count
-        if count > 0:
-            detected.append("religion_count")
-
-    if "community_tension_count" in features:
-        count = count_keywords(community_keywords)
-        features["community_tension_count"] = count
-        if count > 0:
-            detected.append("community_tension_count")
-
-    if "health_belief_count" in features:
-        count = count_keywords(health_keywords)
-        features["health_belief_count"] = count
-        if count > 0:
-            detected.append("health_belief_count")
-
-    if "festival_count" in features:
-        count = count_keywords(festival_keywords)
-        features["festival_count"] = count
-        if count > 0:
-            detected.append("festival_count")
-
-    if "political_symbol_count" in features:
-        count = count_keywords(political_keywords)
-        features["political_symbol_count"] = count
-        if count > 0:
-            detected.append("political_symbol_count")
-
-    if "regional_identity_count" in features:
-        count = count_keywords(regional_keywords)
-        features["regional_identity_count"] = count
-        if count > 0:
-            detected.append("regional_identity_count")
-
-    # Boolean flags
-
-    for key in features:
-
-        if key.startswith("has_"):
-
-            base = key.replace("has_", "") + "_count"
-
-            if base in features:
-
-                features[key] = int(
-                    features[base] > 0
-                )
-
-                if features[key] == 1:
-                    detected.append(key)
-
     vector = np.array(
         [features[f] for f in culture_features]
     ).reshape(1, -1)
@@ -423,7 +291,48 @@ def get_culture_features(text):
     return vector, detected
 
 # -------------------------------------------------
-# Prediction 
+# Transformer prediction
+# -------------------------------------------------
+
+def transformer_predict(
+    text,
+    model,
+    tokenizer
+):
+
+    device = torch.device("cpu")
+
+    inputs = tokenizer(
+        text,
+        return_tensors="pt",
+        truncation=True,
+        padding=True,
+        max_length=256
+    )
+
+    with torch.no_grad():
+
+        outputs = model(**inputs)
+
+        probs = torch.softmax(
+            outputs.logits,
+            dim=1
+        )
+
+        prediction = torch.argmax(
+            probs,
+            dim=1
+        ).item()
+
+        confidence = probs[
+            0,
+            prediction
+        ].item()
+
+    return prediction, confidence
+
+# -------------------------------------------------
+# Prediction
 # -------------------------------------------------
 
 if st.button("Predict"):
@@ -440,49 +349,63 @@ if st.button("Predict"):
                 "Analyzing news content..."
             ):
 
-                text_vector = vectorizer.transform(
-                    [st.session_state.user_text]
-                )
+                if model_choice == "RandomForest":
 
-                culture_vector, detected_features = \
-                    get_culture_features(
-                        st.session_state.user_text
+                    text_vector = vectorizer.transform(
+                        [st.session_state.user_text]
                     )
 
-                if culture_vector.shape[1] == scaler.n_features_in_:
-                    culture_vector = scaler.transform(
-                        culture_vector
+                    culture_vector, detected_features = \
+                        get_culture_features(
+                            st.session_state.user_text
+                        )
+
+                    if culture_vector.shape[1] == scaler.n_features_in_:
+
+                        culture_vector = scaler.transform(
+                            culture_vector
+                        )
+
+                    combined = np.hstack(
+                        (
+                            text_vector.toarray(),
+                            culture_vector
+                        )
                     )
 
-                combined = np.hstack(
-                    (
-                        text_vector.toarray(),
-                        culture_vector
+                    prediction = int(
+                        model.predict(combined)[0]
                     )
-                )
 
-                prediction = int(
-                    model.predict(combined)[0]
-                )
+                    probability = model.predict_proba(
+                        combined
+                    )[0]
 
-                probability = model.predict_proba(
-                    combined
-                )[0]
+                    confidence = probability[
+                        prediction
+                    ]
 
-                confidence = round(
-                    max(probability) * 100,
-                    2
-                )
+                elif model_choice == "mBERT":
 
-                real_prob = round(
-                    probability[0] * 100,
-                    2
-                )
+                    prediction, confidence = \
+                        transformer_predict(
+                            st.session_state.user_text,
+                            mb_model,
+                            mb_tokenizer
+                        )
 
-                fake_prob = round(
-                    probability[1] * 100,
-                    2
-                )
+                    detected_features = []
+
+                else:
+
+                    prediction, confidence = \
+                        transformer_predict(
+                            st.session_state.user_text,
+                            xlm_model,
+                            xlm_tokenizer
+                        )
+
+                    detected_features = []
 
             if prediction == 1:
 
@@ -493,129 +416,7 @@ if st.button("Predict"):
                 st.success("✅ Prediction: REAL")
 
             st.write(
-                f"Confidence: {confidence}%"
-            )
-
-            st.progress(confidence / 100)
-
-            st.write(
-                f"Fake Probability: {fake_prob}%"
-            )
-
-            st.write(
-                f"Real Probability: {real_prob}%"
-            )
-
-            # Cultural features display
-
-            st.subheader(
-                "Detected Cultural Features"
-            )
-
-            if detected_features:
-
-                for f in detected_features:
-                    st.write("•", f)
-
-            else:
-
-                st.write(
-                    "No cultural indicators detected."
-                )
-
-            # Top Influential Words (UNCHANGED)
-
-            st.subheader(
-                "Top Influential Words"
-            )
-
-            tfidf_vector = vectorizer.transform(
-                [st.session_state.user_text]
-            )
-
-            feature_names = \
-                vectorizer.get_feature_names_out()
-
-            scores = tfidf_vector.toarray()[0]
-
-            top_indices = scores.argsort()[::-1]
-
-            top_words = []
-
-            for idx in top_indices:
-
-                word = feature_names[idx]
-
-                if scores[idx] > 0:
-
-                    if word not in [
-                        "token_count",
-                        "unique_token_count",
-                        "lexical_diversity"
-                    ]:
-
-                        top_words.append(word)
-
-                if len(top_words) == 5:
-                    break
-
-            if not top_words:
-
-                nonzero_indices = np.where(scores > 0)[0]
-
-                for idx in nonzero_indices[:5]:
-
-                    top_words.append(
-                        feature_names[idx]
-                    )
-
-            for word in top_words:
-
-                st.write("•", word)
-
-            if confidence < 60:
-
-                st.warning(
-                    "Low confidence prediction — result may be unreliable."
-                )
-
-            # Download report
-
-            report = f"""
-Fake News Detection Report
-
-News Text:
-{st.session_state.user_text}
-
-Prediction:
-{"FAKE" if prediction == 1 else "REAL"}
-
-Confidence:
-{confidence}%
-
-Fake Probability:
-{fake_prob}%
-
-Real Probability:
-{real_prob}%
-
-Detected Cultural Features:
-{', '.join(detected_features) if detected_features else 'None'}
-
-Generated:
-{datetime.now()}
-"""
-
-            st.download_button(
-
-                label="Download Report",
-
-                data=report,
-
-                file_name="prediction_report.txt",
-
-                mime="text/plain"
-
+                f"Confidence: {round(confidence*100,2)}%"
             )
 
         except Exception as e:
@@ -627,7 +428,7 @@ Generated:
             st.write(str(e))
 
 # -------------------------------------------------
-# Footer 
+# Footer
 # -------------------------------------------------
 
 st.divider()
