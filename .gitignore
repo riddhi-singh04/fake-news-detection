@@ -1,0 +1,21 @@
+# Protect Passwords & API Keys
+.env
+.venv
+env/
+venv/
+secrets.toml
+
+# Block Python Junk Files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Block Massive Deep Learning Models (To prevent crashes)
+*.pt
+*.bin
+*.h5
+transformers/
+
+# OS generated files
+.DS_Store
+Thumbs.db
