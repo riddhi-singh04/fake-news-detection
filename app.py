@@ -407,13 +407,12 @@ if st.button("Predict"):
 
                     detected_features = []
 
-                elif model_choice == "MuRIL": # Your model!
+                elif model_choice == "MuRIL": 
                     import re
                     
-                    # Connect to your Hugging Face Brain
+                    
                     client = Client("pseudokoo/FakeNews-Detector-1-API", hf_token=st.secrets["HF_TOKEN"])
                     
-                    # Send the text to the correct API endpoint
                     result = client.predict(
                         text=st.session_state.user_text,
                         api_name="/predict_fake_news"
