@@ -4,6 +4,7 @@ import numpy as np
 import os
 import gdown
 from datetime import datetime
+from gradio_client import Client
 
 import torch
 from transformers import (
@@ -174,13 +175,12 @@ st.divider()
 # -------------------------------------------------
 
 model_choice = st.selectbox(
-
     "Select Model",
-
     [
         "RandomForest",
         "mBERT",
-        "XLM-RoBERTa"
+        "XLM-RoBERTa",
+        "MuRIL"
     ]
 )
 
@@ -396,7 +396,7 @@ if st.button("Predict"):
 
                     detected_features = []
 
-                else:
+                elif model_choice == "XLM-RoBERTa": # We fixed this from "else:"
 
                     prediction, confidence = \
                         transformer_predict(
@@ -407,6 +407,41 @@ if st.button("Predict"):
 
                     detected_features = []
 
+                elif model_choice == "MuRIL": # Your model!
+                    import re
+                    
+                    # Connect to your Hugging Face Brain
+                    client = Client("pseudokoo/FakeNews-Detector-1-API", hf_token=st.secrets["HF_TOKEN"])
+                    
+                    # Send the text to the correct API endpoint
+                    result = client.predict(
+                        text=st.session_state.user_text,
+                        api_name="/predict_fake_news"
+                    )
+                    
+                    result_str = str(result)
+                    
+                    # 1. Determine Fake vs Real
+                    if "FAKE" in result_str.upper():
+                        prediction = 1
+                    else:
+                        prediction = 0
+                        
+                    # 2. Extract the true confidence score
+                    match = re.search(r"(\d+(\.\d+)?)%", result_str)
+                    if match:
+                        # Divide by 100 because the UI code multiplies by 100 later
+                        confidence = float(match.group(1)) / 100
+                    else:
+                        confidence = 0.85 # Fallback safety net
+                        
+                    detected_features = []
+                    
+                else:
+                    # The Ultimate Safety Net
+                    st.error("Error: Model selection not recognized.")
+                    st.stop()
+                    
             if prediction == 1:
 
                 st.error("🚨 Prediction: FAKE")
