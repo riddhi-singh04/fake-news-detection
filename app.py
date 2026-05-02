@@ -31,7 +31,7 @@ if "user_text" not in st.session_state:
     st.session_state.user_text = ""
 
 # -------------------------------------------------
-# Theme
+# Theme toggle
 # -------------------------------------------------
 
 theme = st.sidebar.selectbox(
@@ -100,7 +100,7 @@ if not os.path.exists(MODEL_PATH):
     )
 
 # -------------------------------------------------
-# Load classical models
+# Load classical model
 # -------------------------------------------------
 
 model = joblib.load("saved_model/model.pkl")
@@ -187,6 +187,31 @@ model_choice = st.selectbox(
 )
 
 # -------------------------------------------------
+# Example buttons (RESTORED)
+# -------------------------------------------------
+
+st.subheader("Try Example News")
+
+col1, col2 = st.columns(2)
+
+with col1:
+
+    if st.button("Load Real News Example"):
+
+        st.session_state.user_text = (
+            "The Reserve Bank of India announced a revision "
+            "in repo rates to control inflation."
+        )
+
+with col2:
+
+    if st.button("Load Fake News Example"):
+
+        st.session_state.user_text = (
+            "Scientists confirm drinking bleach cures all diseases instantly."
+        )
+
+# -------------------------------------------------
 # Input
 # -------------------------------------------------
 
@@ -227,12 +252,10 @@ def get_culture_features(text):
 
         if name in features:
 
-            count = sum(
+            features[name] = sum(
                 1 for w in words
                 if w in text_lower
             )
-
-            features[name] = count
 
     vector = np.array(
         [features[f] for f in culture_features]
@@ -241,7 +264,7 @@ def get_culture_features(text):
     return vector
 
 # -------------------------------------------------
-# Transformer prediction
+# Transformer prediction (SAFE)
 # -------------------------------------------------
 
 def transformer_predict(text, model, tokenizer):
@@ -264,13 +287,9 @@ def transformer_predict(text, model, tokenizer):
 
             prob = torch.sigmoid(logits)
 
-            prediction = int(
-                prob.item() > 0.5
-            )
+            prediction = int(prob.item() > 0.5)
 
-            confidence = float(
-                prob.item()
-            )
+            confidence = float(prob.item())
 
         else:
 
@@ -298,7 +317,7 @@ def transformer_predict(text, model, tokenizer):
 
 if st.button("Predict"):
 
-    if st.session_state.user_text.strip() == "":
+    if user_text.strip() == "":
 
         st.warning("Please enter news text.")
 
@@ -306,13 +325,7 @@ if st.button("Predict"):
 
         try:
 
-            with st.spinner(
-                "Analyzing news content..."
-            ):
-
-                # -------------------------
-                # Random Forest
-                # -------------------------
+            with st.spinner("Analyzing..."):
 
                 if model_choice == "RandomForest":
 
@@ -347,10 +360,6 @@ if st.button("Predict"):
                         prediction
                     ]
 
-                # -------------------------
-                # mBERT
-                # -------------------------
-
                 elif model_choice == "mBERT":
 
                     mb_model, mb_tokenizer = load_mbert()
@@ -361,10 +370,6 @@ if st.button("Predict"):
                         mb_tokenizer
                     )
 
-                # -------------------------
-                # XLM-R
-                # -------------------------
-
                 elif model_choice == "XLM-RoBERTa":
 
                     x_model, x_tokenizer = load_xlmr()
@@ -374,10 +379,6 @@ if st.button("Predict"):
                         x_model,
                         x_tokenizer
                     )
-
-                # -------------------------
-                # MuRIL
-                # -------------------------
 
                 elif model_choice == "MuRIL":
 
@@ -395,36 +396,28 @@ if st.button("Predict"):
 
                     result_str = str(result)
 
-                    if "FAKE" in result_str.upper():
-                        prediction = 1
-                    else:
-                        prediction = 0
+                    prediction = (
+                        1 if "FAKE" in result_str.upper()
+                        else 0
+                    )
 
                     match = re.search(
                         r"(\d+(\.\d+)?)%",
                         result_str
                     )
 
-                    if match:
-                        confidence = float(
-                            match.group(1)
-                        ) / 100
-                    else:
-                        confidence = 0.85
-
-            # -------------------------
+                    confidence = (
+                        float(match.group(1)) / 100
+                        if match else 0.85
+                    )
 
             if prediction == 1:
 
-                st.error(
-                    "🚨 Prediction: FAKE"
-                )
+                st.error("🚨 Prediction: FAKE")
 
             else:
 
-                st.success(
-                    "✅ Prediction: REAL"
-                )
+                st.success("✅ Prediction: REAL")
 
             st.write(
                 f"Confidence: {round(confidence*100,2)}%"
@@ -432,9 +425,7 @@ if st.button("Predict"):
 
         except Exception as e:
 
-            st.error(
-                "Error occurred during prediction."
-            )
+            st.error("Error occurred during prediction.")
 
             st.write(str(e))
 
