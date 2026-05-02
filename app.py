@@ -136,7 +136,8 @@ def load_transformers():
 
     mb_model = AutoModelForSequenceClassification.from_pretrained(
         "riddhi04/mbert-hybrid-model",
-        token=riddhi_token
+        token=riddhi_token,
+        ignore_mismatched_sizes=True
     )
 
     mb_model.to(device)
@@ -151,9 +152,10 @@ def load_transformers():
         token=riddhi_token
     )
 
-    xlm_model = AutoModelForSequenceClassification.from_pretrained(
+    xlmr_model = AutoModelForSequenceClassification.from_pretrained(
         "riddhi04/xlmr-hybrid-model",
-        token=riddhi_token
+        token=riddhi_token,
+        ignore_mismatched_sizes=True
     )
 
     xlm_model.to(device)
