@@ -129,39 +129,40 @@ def load_transformers():
     # mBERT
     # -------------------------
 
-    mb_tokenizer = AutoTokenizer.from_pretrained(
-        "riddhi04/mbert-hybrid-model",
-        token=riddhi_token
-    )
+    # mBERT
 
-    mb_model = AutoModelForSequenceClassification.from_pretrained(
-        "riddhi04/mbert-hybrid-model",
-        token=riddhi_token,
-        ignore_mismatched_sizes=True
-        trust_remote_code=True
-    )
+mb_tokenizer = AutoTokenizer.from_pretrained(
+    "riddhi04/mbert-hybrid-model",
+    token=riddhi_token
+)
 
-    mb_model.to(device)
-    mb_model.eval()
+mb_model = AutoModelForSequenceClassification.from_pretrained(
+    "riddhi04/mbert-hybrid-model",
+    token=riddhi_token,
+    ignore_mismatched_sizes=True,
+    trust_remote_code=True
+)
 
-    # -------------------------
-    # XLM-R
-    # -------------------------
+mb_model.to(device)
+mb_model.eval()
 
-    xlm_tokenizer = AutoTokenizer.from_pretrained(
-        "riddhi04/xlmr-hybrid-model",
-        token=riddhi_token
-    )
 
-    xlmr_model = AutoModelForSequenceClassification.from_pretrained(
-        "riddhi04/xlmr-hybrid-model",
-        token=riddhi_token,
-        ignore_mismatched_sizes=True
-        trust_remote_code=True
-    )
+# XLM-R
 
-    xlm_model.to(device)
-    xlm_model.eval()
+xlm_tokenizer = AutoTokenizer.from_pretrained(
+    "riddhi04/xlmr-hybrid-model",
+    token=riddhi_token
+)
+
+xlm_model = AutoModelForSequenceClassification.from_pretrained(
+    "riddhi04/xlmr-hybrid-model",
+    token=riddhi_token,
+    ignore_mismatched_sizes=True,
+    trust_remote_code=True
+)
+
+xlm_model.to(device)
+xlm_model.eval()
 
     return (
         mb_model,
