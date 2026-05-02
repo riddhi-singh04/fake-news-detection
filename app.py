@@ -31,7 +31,7 @@ if "user_text" not in st.session_state:
     st.session_state.user_text = ""
 
 # -------------------------------------------------
-# Theme toggle
+# Theme
 # -------------------------------------------------
 
 theme = st.sidebar.selectbox(
@@ -40,7 +40,6 @@ theme = st.sidebar.selectbox(
 )
 
 if theme == "Dark":
-
     st.markdown(
         """
         <style>
@@ -54,12 +53,11 @@ if theme == "Dark":
     )
 
 elif theme == "Light":
-
     st.markdown(
         """
         <style>
         .stApp {
-            background-color: #ffffff;
+            background-color: white;
             color: black;
         }
         </style>
@@ -68,7 +66,6 @@ elif theme == "Light":
     )
 
 elif theme == "Smooth":
-
     st.markdown(
         """
         <style>
@@ -87,7 +84,7 @@ elif theme == "Smooth":
     )
 
 # -------------------------------------------------
-# Download classical model if missing
+# Download classical model
 # -------------------------------------------------
 
 MODEL_PATH = "saved_model/model.pkl"
@@ -103,7 +100,7 @@ if not os.path.exists(MODEL_PATH):
     )
 
 # -------------------------------------------------
-# Load classical model
+# Load classical models
 # -------------------------------------------------
 
 model = joblib.load("saved_model/model.pkl")
@@ -114,13 +111,11 @@ culture_features = joblib.load(
 )
 
 # -------------------------------------------------
-# Load mBERT (ONLY when used)
+# Load mBERT
 # -------------------------------------------------
 
 @st.cache_resource
 def load_mbert():
-
-    device = torch.device("cpu")
 
     token = st.secrets["HF_TOKEN_Riddhi"]
 
@@ -132,24 +127,20 @@ def load_mbert():
     model = AutoModelForSequenceClassification.from_pretrained(
         "riddhi04/mbert-hybrid-model",
         token=token,
-        num_labels=2,
         ignore_mismatched_sizes=True
     )
 
-    model.to(device)
     model.eval()
 
     return model, tokenizer
 
 
 # -------------------------------------------------
-# Load XLM-R (ONLY when used)
+# Load XLM-R
 # -------------------------------------------------
 
 @st.cache_resource
 def load_xlmr():
-
-    device = torch.device("cpu")
 
     token = st.secrets["HF_TOKEN_Riddhi"]
 
@@ -161,11 +152,9 @@ def load_xlmr():
     model = AutoModelForSequenceClassification.from_pretrained(
         "riddhi04/xlmr-hybrid-model",
         token=token,
-        num_labels=2,
         ignore_mismatched_sizes=True
     )
 
-    model.to(device)
     model.eval()
 
     return model, tokenizer
@@ -198,31 +187,6 @@ model_choice = st.selectbox(
 )
 
 # -------------------------------------------------
-# Example buttons
-# -------------------------------------------------
-
-st.subheader("Try Example News")
-
-col1, col2 = st.columns(2)
-
-with col1:
-
-    if st.button("Load Real News Example"):
-
-        st.session_state.user_text = (
-            "The Reserve Bank of India announced a revision "
-            "in repo rates to control inflation."
-        )
-
-with col2:
-
-    if st.button("Load Fake News Example"):
-
-        st.session_state.user_text = (
-            "Scientists confirm drinking bleach cures all diseases instantly."
-        )
-
-# -------------------------------------------------
 # Input
 # -------------------------------------------------
 
@@ -244,64 +208,37 @@ def get_culture_features(text):
 
     features = {f: 0 for f in culture_features}
 
-    detected = []
-
     keyword_map = {
 
-        "national_identity_count": [
-            "india", "country", "nation"
-        ],
+        "national_identity_count":
+            ["india", "country", "nation"],
 
-        "health_belief_count": [
-            "cure", "disease", "virus"
-        ],
+        "health_belief_count":
+            ["cure", "disease", "virus"],
 
-        "community_tension_count": [
-            "riot", "violence", "attack"
-        ],
+        "community_tension_count":
+            ["riot", "violence", "attack"],
 
-        "education_count": [
-            "school", "college", "university"
-        ]
-
+        "education_count":
+            ["school", "college", "university"]
     }
 
-    for feature_name, keywords in keyword_map.items():
+    for name, words in keyword_map.items():
 
-        if feature_name in features:
+        if name in features:
 
             count = sum(
-                1 for word in keywords
-                if word in text_lower
+                1 for w in words
+                if w in text_lower
             )
 
-            features[feature_name] = count
-
-            if count > 0:
-                detected.append(feature_name)
-
-    for key in features:
-
-        if key.startswith("has_"):
-
-            base = key.replace(
-                "has_", ""
-            ) + "_count"
-
-            if base in features:
-
-                features[key] = int(
-                    features[base] > 0
-                )
-
-                if features[key] == 1:
-                    detected.append(key)
+            features[name] = count
 
     vector = np.array(
         [features[f] for f in culture_features]
     ).reshape(1, -1)
 
-    return vector, detected
+    return vector
 
 # -------------------------------------------------
 # Transformer prediction
@@ -321,20 +258,37 @@ def transformer_predict(text, model, tokenizer):
 
         outputs = model(**inputs)
 
-        probs = torch.softmax(
-            outputs.logits,
-            dim=1
-        )
+        logits = outputs.logits
 
-        prediction = torch.argmax(
-            probs,
-            dim=1
-        ).item()
+        if logits.shape[-1] == 1:
 
-        confidence = probs[
-            0,
-            prediction
-        ].item()
+            prob = torch.sigmoid(logits)
+
+            prediction = int(
+                prob.item() > 0.5
+            )
+
+            confidence = float(
+                prob.item()
+            )
+
+        else:
+
+            probs = torch.softmax(
+                logits,
+                dim=1
+            )
+
+            prediction = int(
+                torch.argmax(
+                    probs,
+                    dim=1
+                ).item()
+            )
+
+            confidence = float(
+                probs[0][prediction].item()
+            )
 
     return prediction, confidence
 
@@ -356,16 +310,19 @@ if st.button("Predict"):
                 "Analyzing news content..."
             ):
 
+                # -------------------------
+                # Random Forest
+                # -------------------------
+
                 if model_choice == "RandomForest":
 
                     text_vector = vectorizer.transform(
-                        [st.session_state.user_text]
+                        [user_text]
                     )
 
-                    culture_vector, detected_features = \
-                        get_culture_features(
-                            st.session_state.user_text
-                        )
+                    culture_vector = get_culture_features(
+                        user_text
+                    )
 
                     culture_vector = scaler.transform(
                         culture_vector
@@ -390,43 +347,49 @@ if st.button("Predict"):
                         prediction
                     ]
 
+                # -------------------------
+                # mBERT
+                # -------------------------
+
                 elif model_choice == "mBERT":
 
                     mb_model, mb_tokenizer = load_mbert()
 
-                    prediction, confidence = \
-                        transformer_predict(
-                            st.session_state.user_text,
-                            mb_model,
-                            mb_tokenizer
-                        )
+                    prediction, confidence = transformer_predict(
+                        user_text,
+                        mb_model,
+                        mb_tokenizer
+                    )
 
-                    detected_features = []
+                # -------------------------
+                # XLM-R
+                # -------------------------
 
                 elif model_choice == "XLM-RoBERTa":
 
-                    xlm_model, xlm_tokenizer = load_xlmr()
+                    x_model, x_tokenizer = load_xlmr()
 
-                    prediction, confidence = \
-                        transformer_predict(
-                            st.session_state.user_text,
-                            xlm_model,
-                            xlm_tokenizer
-                        )
+                    prediction, confidence = transformer_predict(
+                        user_text,
+                        x_model,
+                        x_tokenizer
+                    )
 
-                    detected_features = []
+                # -------------------------
+                # MuRIL
+                # -------------------------
 
                 elif model_choice == "MuRIL":
 
-                    muril_token = st.secrets["HF_TOKEN"]
+                    token = st.secrets["HF_TOKEN"]
 
                     client = Client(
                         "pseudokoo/FakeNews-Detector-1-API",
-                        token=muril_token
+                        hf_token=token
                     )
 
                     result = client.predict(
-                        text=st.session_state.user_text,
+                        text=user_text,
                         api_name="/predict_fake_news"
                     )
 
@@ -449,15 +412,19 @@ if st.button("Predict"):
                     else:
                         confidence = 0.85
 
-                    detected_features = []
+            # -------------------------
 
             if prediction == 1:
 
-                st.error("🚨 Prediction: FAKE")
+                st.error(
+                    "🚨 Prediction: FAKE"
+                )
 
             else:
 
-                st.success("✅ Prediction: REAL")
+                st.success(
+                    "✅ Prediction: REAL"
+                )
 
             st.write(
                 f"Confidence: {round(confidence*100,2)}%"
@@ -465,7 +432,9 @@ if st.button("Predict"):
 
         except Exception as e:
 
-            st.error("Error occurred during prediction.")
+            st.error(
+                "Error occurred during prediction."
+            )
 
             st.write(str(e))
 
