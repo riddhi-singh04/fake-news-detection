@@ -57,7 +57,7 @@ elif theme == "Light":
         """
         <style>
         .stApp {
-            background-color: white;
+            background-color: #ffffff;
             color: black;
         }
         </style>
@@ -100,7 +100,7 @@ if not os.path.exists(MODEL_PATH):
     )
 
 # -------------------------------------------------
-# Load classical model
+# Load classical models
 # -------------------------------------------------
 
 model = joblib.load("saved_model/model.pkl")
@@ -187,7 +187,7 @@ model_choice = st.selectbox(
 )
 
 # -------------------------------------------------
-# Example buttons (RESTORED)
+# Example buttons
 # -------------------------------------------------
 
 st.subheader("Try Example News")
@@ -264,7 +264,7 @@ def get_culture_features(text):
     return vector
 
 # -------------------------------------------------
-# Transformer prediction (SAFE)
+# Transformer prediction
 # -------------------------------------------------
 
 def transformer_predict(text, model, tokenizer):
@@ -325,7 +325,7 @@ if st.button("Predict"):
 
         try:
 
-            with st.spinner("Analyzing..."):
+            with st.spinner("Analyzing news content..."):
 
                 if model_choice == "RandomForest":
 
@@ -386,7 +386,7 @@ if st.button("Predict"):
 
                     client = Client(
                         "pseudokoo/FakeNews-Detector-1-API",
-                        hf_token=token
+                        token=token
                     )
 
                     result = client.predict(
