@@ -3,14 +3,15 @@ import joblib
 import numpy as np
 import os
 import gdown
-from datetime import datetime
-from gradio_client import Client
-
 import torch
+import re
+
 from transformers import (
     AutoTokenizer,
     AutoModelForSequenceClassification
 )
+
+from gradio_client import Client
 
 # -------------------------------------------------
 # Page configuration
@@ -86,7 +87,7 @@ elif theme == "Smooth":
     )
 
 # -------------------------------------------------
-# Model download if missing
+# Download classical model if missing
 # -------------------------------------------------
 
 MODEL_PATH = "saved_model/model.pkl"
@@ -113,7 +114,7 @@ culture_features = joblib.load(
 )
 
 # -------------------------------------------------
-# Load transformer models
+# Load transformer models (PRIVATE HF)
 # -------------------------------------------------
 
 @st.cache_resource
@@ -121,23 +122,38 @@ def load_transformers():
 
     device = torch.device("cpu")
 
+    muril_token = st.secrets["HF_TOKEN_MURIL"]
+    riddhi_token = st.secrets["HF_TOKEN_RIDDHI"]
+
+    # -------------------------
+    # mBERT
+    # -------------------------
+
     mb_tokenizer = AutoTokenizer.from_pretrained(
-        "transformers/mbert"
+        "riddhi04/mbert-hybrid-model",
+        token=riddhi_token
     )
 
     mb_model = AutoModelForSequenceClassification.from_pretrained(
-        "transformers/mbert"
+        "riddhi04/mbert-hybrid-model",
+        token=riddhi_token
     )
 
     mb_model.to(device)
     mb_model.eval()
 
+    # -------------------------
+    # XLM-R
+    # -------------------------
+
     xlm_tokenizer = AutoTokenizer.from_pretrained(
-        "transformers/xlmr"
+        "riddhi04/xlmr-hybrid-model",
+        token=riddhi_token
     )
 
     xlm_model = AutoModelForSequenceClassification.from_pretrained(
-        "transformers/xlmr"
+        "riddhi04/xlmr-hybrid-model",
+        token=riddhi_token
     )
 
     xlm_model.to(device)
@@ -147,7 +163,8 @@ def load_transformers():
         mb_model,
         mb_tokenizer,
         xlm_model,
-        xlm_tokenizer
+        xlm_tokenizer,
+        muril_token
     )
 
 
@@ -155,7 +172,8 @@ def load_transformers():
     mb_model,
     mb_tokenizer,
     xlm_model,
-    xlm_tokenizer
+    xlm_tokenizer,
+    muril_token
 ) = load_transformers()
 
 # -------------------------------------------------
@@ -231,6 +249,8 @@ def get_culture_features(text):
 
     features = {f: 0 for f in culture_features}
 
+    detected = []
+
     keyword_map = {
 
         "national_identity_count": [
@@ -250,8 +270,6 @@ def get_culture_features(text):
         ]
 
     }
-
-    detected = []
 
     for feature_name, keywords in keyword_map.items():
 
@@ -300,8 +318,6 @@ def transformer_predict(
     tokenizer
 ):
 
-    device = torch.device("cpu")
-
     inputs = tokenizer(
         text,
         return_tensors="pt",
@@ -349,6 +365,10 @@ if st.button("Predict"):
                 "Analyzing news content..."
             ):
 
+                # -------------------------
+                # RandomForest
+                # -------------------------
+
                 if model_choice == "RandomForest":
 
                     text_vector = vectorizer.transform(
@@ -360,11 +380,9 @@ if st.button("Predict"):
                             st.session_state.user_text
                         )
 
-                    if culture_vector.shape[1] == scaler.n_features_in_:
-
-                        culture_vector = scaler.transform(
-                            culture_vector
-                        )
+                    culture_vector = scaler.transform(
+                        culture_vector
+                    )
 
                     combined = np.hstack(
                         (
@@ -385,6 +403,10 @@ if st.button("Predict"):
                         prediction
                     ]
 
+                # -------------------------
+                # mBERT
+                # -------------------------
+
                 elif model_choice == "mBERT":
 
                     prediction, confidence = \
@@ -396,7 +418,11 @@ if st.button("Predict"):
 
                     detected_features = []
 
-                elif model_choice == "XLM-RoBERTa": # We fixed this from "else:"
+                # -------------------------
+                # XLM-R
+                # -------------------------
+
+                elif model_choice == "XLM-RoBERTa":
 
                     prediction, confidence = \
                         transformer_predict(
@@ -407,40 +433,43 @@ if st.button("Predict"):
 
                     detected_features = []
 
-                elif model_choice == "MuRIL": 
-                    import re
-                    
-                    
-                    client = Client("pseudokoo/FakeNews-Detector-1-API", hf_token=st.secrets["HF_TOKEN"])
-                    
+                # -------------------------
+                # MuRIL API
+                # -------------------------
+
+                elif model_choice == "MuRIL":
+
+                    client = Client(
+                        "pseudokoo/FakeNews-Detector-1-API",
+                        hf_token=muril_token
+                    )
+
                     result = client.predict(
                         text=st.session_state.user_text,
                         api_name="/predict_fake_news"
                     )
-                    
+
                     result_str = str(result)
-                    
-                    # 1. Determine Fake vs Real
+
                     if "FAKE" in result_str.upper():
                         prediction = 1
                     else:
                         prediction = 0
-                        
-                    # 2. Extract the true confidence score
-                    match = re.search(r"(\d+(\.\d+)?)%", result_str)
+
+                    match = re.search(
+                        r"(\d+(\.\d+)?)%",
+                        result_str
+                    )
+
                     if match:
-                        # Divide by 100 because the UI code multiplies by 100 later
-                        confidence = float(match.group(1)) / 100
+                        confidence = float(
+                            match.group(1)
+                        ) / 100
                     else:
-                        confidence = 0.85 # Fallback safety net
-                        
+                        confidence = 0.85
+
                     detected_features = []
-                    
-                else:
-                    # The Ultimate Safety Net
-                    st.error("Error: Model selection not recognized.")
-                    st.stop()
-                    
+
             if prediction == 1:
 
                 st.error("🚨 Prediction: FAKE")
