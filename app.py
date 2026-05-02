@@ -122,8 +122,8 @@ def load_transformers():
 
     device = torch.device("cpu")
 
-    muril_token = st.secrets["HF_TOKEN_MURIL"]
-    riddhi_token = st.secrets["HF_TOKEN_RIDDHI"]
+    muril_token = st.secrets["HF_TOKEN"]
+    riddhi_token = st.secrets["HF_TOKEN_Riddhi"]
 
     # -------------------------
     # mBERT
