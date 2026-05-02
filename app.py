@@ -114,7 +114,7 @@ culture_features = joblib.load(
 )
 
 # -------------------------------------------------
-# Load transformer models (PRIVATE HF)
+# Load transformer models
 # -------------------------------------------------
 
 @st.cache_resource
@@ -129,40 +129,39 @@ def load_transformers():
     # mBERT
     # -------------------------
 
-    # mBERT
+    mb_tokenizer = AutoTokenizer.from_pretrained(
+        "riddhi04/mbert-hybrid-model",
+        token=riddhi_token
+    )
 
-mb_tokenizer = AutoTokenizer.from_pretrained(
-    "riddhi04/mbert-hybrid-model",
-    token=riddhi_token
-)
+    mb_model = AutoModelForSequenceClassification.from_pretrained(
+        "riddhi04/mbert-hybrid-model",
+        token=riddhi_token,
+        ignore_mismatched_sizes=True,
+        trust_remote_code=True
+    )
 
-mb_model = AutoModelForSequenceClassification.from_pretrained(
-    "riddhi04/mbert-hybrid-model",
-    token=riddhi_token,
-    ignore_mismatched_sizes=True,
-    trust_remote_code=True
-)
+    mb_model.to(device)
+    mb_model.eval()
 
-mb_model.to(device)
-mb_model.eval()
+    # -------------------------
+    # XLM-R
+    # -------------------------
 
+    xlm_tokenizer = AutoTokenizer.from_pretrained(
+        "riddhi04/xlmr-hybrid-model",
+        token=riddhi_token
+    )
 
-# XLM-R
+    xlm_model = AutoModelForSequenceClassification.from_pretrained(
+        "riddhi04/xlmr-hybrid-model",
+        token=riddhi_token,
+        ignore_mismatched_sizes=True,
+        trust_remote_code=True
+    )
 
-xlm_tokenizer = AutoTokenizer.from_pretrained(
-    "riddhi04/xlmr-hybrid-model",
-    token=riddhi_token
-)
-
-xlm_model = AutoModelForSequenceClassification.from_pretrained(
-    "riddhi04/xlmr-hybrid-model",
-    token=riddhi_token,
-    ignore_mismatched_sizes=True,
-    trust_remote_code=True
-)
-
-xlm_model.to(device)
-xlm_model.eval()
+    xlm_model.to(device)
+    xlm_model.eval()
 
     return (
         mb_model,
@@ -259,19 +258,19 @@ def get_culture_features(text):
     keyword_map = {
 
         "national_identity_count": [
-            "india","country","nation"
+            "india", "country", "nation"
         ],
 
         "health_belief_count": [
-            "cure","disease","virus"
+            "cure", "disease", "virus"
         ],
 
         "community_tension_count": [
-            "riot","violence","attack"
+            "riot", "violence", "attack"
         ],
 
         "education_count": [
-            "school","college","university"
+            "school", "college", "university"
         ]
 
     }
@@ -317,11 +316,7 @@ def get_culture_features(text):
 # Transformer prediction
 # -------------------------------------------------
 
-def transformer_predict(
-    text,
-    model,
-    tokenizer
-):
+def transformer_predict(text, model, tokenizer):
 
     inputs = tokenizer(
         text,
@@ -370,10 +365,6 @@ if st.button("Predict"):
                 "Analyzing news content..."
             ):
 
-                # -------------------------
-                # RandomForest
-                # -------------------------
-
                 if model_choice == "RandomForest":
 
                     text_vector = vectorizer.transform(
@@ -408,10 +399,6 @@ if st.button("Predict"):
                         prediction
                     ]
 
-                # -------------------------
-                # mBERT
-                # -------------------------
-
                 elif model_choice == "mBERT":
 
                     prediction, confidence = \
@@ -423,10 +410,6 @@ if st.button("Predict"):
 
                     detected_features = []
 
-                # -------------------------
-                # XLM-R
-                # -------------------------
-
                 elif model_choice == "XLM-RoBERTa":
 
                     prediction, confidence = \
@@ -437,10 +420,6 @@ if st.button("Predict"):
                         )
 
                     detected_features = []
-
-                # -------------------------
-                # MuRIL API
-                # -------------------------
 
                 elif model_choice == "MuRIL":
 
@@ -495,8 +474,6 @@ if st.button("Predict"):
 
             st.write(str(e))
 
-# -------------------------------------------------
-# Footer
 # -------------------------------------------------
 
 st.divider()
