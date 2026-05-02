@@ -114,71 +114,62 @@ culture_features = joblib.load(
 )
 
 # -------------------------------------------------
-# Load transformer models
+# Load mBERT (ONLY when used)
 # -------------------------------------------------
 
 @st.cache_resource
-def load_transformers():
+def load_mbert():
 
     device = torch.device("cpu")
 
-    muril_token = st.secrets["HF_TOKEN"]
-    riddhi_token = st.secrets["HF_TOKEN_Riddhi"]
+    token = st.secrets["HF_TOKEN_Riddhi"]
 
-    # -------------------------
-    # mBERT
-    # -------------------------
-
-    mb_tokenizer = AutoTokenizer.from_pretrained(
+    tokenizer = AutoTokenizer.from_pretrained(
         "riddhi04/mbert-hybrid-model",
-        token=riddhi_token
+        token=token
     )
 
-    mb_model = AutoModelForSequenceClassification.from_pretrained(
+    model = AutoModelForSequenceClassification.from_pretrained(
         "riddhi04/mbert-hybrid-model",
-        token=riddhi_token,
+        token=token,
         ignore_mismatched_sizes=True,
         trust_remote_code=True
     )
 
-    mb_model.to(device)
-    mb_model.eval()
+    model.to(device)
+    model.eval()
 
-    # -------------------------
-    # XLM-R
-    # -------------------------
+    return model, tokenizer
 
-    xlm_tokenizer = AutoTokenizer.from_pretrained(
+
+# -------------------------------------------------
+# Load XLM-R (ONLY when used)
+# -------------------------------------------------
+
+@st.cache_resource
+def load_xlmr():
+
+    device = torch.device("cpu")
+
+    token = st.secrets["HF_TOKEN_Riddhi"]
+
+    tokenizer = AutoTokenizer.from_pretrained(
         "riddhi04/xlmr-hybrid-model",
-        token=riddhi_token
+        token=token
     )
 
-    xlm_model = AutoModelForSequenceClassification.from_pretrained(
+    model = AutoModelForSequenceClassification.from_pretrained(
         "riddhi04/xlmr-hybrid-model",
-        token=riddhi_token,
+        token=token,
         ignore_mismatched_sizes=True,
         trust_remote_code=True
     )
 
-    xlm_model.to(device)
-    xlm_model.eval()
+    model.to(device)
+    model.eval()
 
-    return (
-        mb_model,
-        mb_tokenizer,
-        xlm_model,
-        xlm_tokenizer,
-        muril_token
-    )
+    return model, tokenizer
 
-
-(
-    mb_model,
-    mb_tokenizer,
-    xlm_model,
-    xlm_tokenizer,
-    muril_token
-) = load_transformers()
 
 # -------------------------------------------------
 # Header
@@ -401,6 +392,8 @@ if st.button("Predict"):
 
                 elif model_choice == "mBERT":
 
+                    mb_model, mb_tokenizer = load_mbert()
+
                     prediction, confidence = \
                         transformer_predict(
                             st.session_state.user_text,
@@ -412,6 +405,8 @@ if st.button("Predict"):
 
                 elif model_choice == "XLM-RoBERTa":
 
+                    xlm_model, xlm_tokenizer = load_xlmr()
+
                     prediction, confidence = \
                         transformer_predict(
                             st.session_state.user_text,
@@ -422,6 +417,8 @@ if st.button("Predict"):
                     detected_features = []
 
                 elif model_choice == "MuRIL":
+
+                    muril_token = st.secrets["HF_TOKEN"]
 
                     client = Client(
                         "pseudokoo/FakeNews-Detector-1-API",
@@ -468,13 +465,9 @@ if st.button("Predict"):
 
         except Exception as e:
 
-            st.error(
-                "Error occurred during prediction."
-            )
+            st.error("Error occurred during prediction.")
 
             st.write(str(e))
-
-# -------------------------------------------------
 
 st.divider()
 
