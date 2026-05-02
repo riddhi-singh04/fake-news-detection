@@ -132,8 +132,8 @@ def load_mbert():
     model = AutoModelForSequenceClassification.from_pretrained(
         "riddhi04/mbert-hybrid-model",
         token=token,
-        ignore_mismatched_sizes=True,
-        trust_remote_code=True
+        num_labels=2,
+        ignore_mismatched_sizes=True
     )
 
     model.to(device)
@@ -161,8 +161,8 @@ def load_xlmr():
     model = AutoModelForSequenceClassification.from_pretrained(
         "riddhi04/xlmr-hybrid-model",
         token=token,
-        ignore_mismatched_sizes=True,
-        trust_remote_code=True
+        num_labels=2,
+        ignore_mismatched_sizes=True
     )
 
     model.to(device)
@@ -422,7 +422,7 @@ if st.button("Predict"):
 
                     client = Client(
                         "pseudokoo/FakeNews-Detector-1-API",
-                        hf_token=muril_token
+                        token=muril_token
                     )
 
                     result = client.predict(
