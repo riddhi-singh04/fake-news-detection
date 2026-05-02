@@ -138,6 +138,7 @@ def load_transformers():
         "riddhi04/mbert-hybrid-model",
         token=riddhi_token,
         ignore_mismatched_sizes=True
+        trust_remote_code=True
     )
 
     mb_model.to(device)
@@ -156,6 +157,7 @@ def load_transformers():
         "riddhi04/xlmr-hybrid-model",
         token=riddhi_token,
         ignore_mismatched_sizes=True
+        trust_remote_code=True
     )
 
     xlm_model.to(device)
