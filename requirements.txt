@@ -1,10 +1,11 @@
 streamlit
+transformers
+torch
+torchvision
 scikit-learn
-numpy
 joblib
+numpy
 pandas
 gdown
-torch
-transformers
-sentencepiece
 gradio_client
+sentencepiece
