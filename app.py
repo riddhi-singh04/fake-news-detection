@@ -121,14 +121,15 @@ def load_mbert():
 
     tokenizer = AutoTokenizer.from_pretrained(
         "riddhi04/mbert-hybrid-model",
-        token=token
+        use_auth_token=token
     )
 
     model = AutoModelForSequenceClassification.from_pretrained(
         "riddhi04/mbert-hybrid-model",
-        token=token,
+        use_auth_token=token,
         ignore_mismatched_sizes=True
     )
+    model.to("cpu")
 
     model.eval()
 
@@ -146,14 +147,15 @@ def load_xlmr():
 
     tokenizer = AutoTokenizer.from_pretrained(
         "riddhi04/xlmr-hybrid-model",
-        token=token
+        use_auth_token=token
     )
 
     model = AutoModelForSequenceClassification.from_pretrained(
         "riddhi04/xlmr-hybrid-model",
-        token=token,
+        use_auth_token=token,
         ignore_mismatched_sizes=True
     )
+    model.to("cpu")
 
     model.eval()
 
@@ -273,7 +275,7 @@ def transformer_predict(text, model, tokenizer):
         text,
         return_tensors="pt",
         truncation=True,
-        padding=True,
+        padding="max_length",
         max_length=256
     )
 
