@@ -121,12 +121,12 @@ def load_mbert():
 
     tokenizer = AutoTokenizer.from_pretrained(
         "riddhi04/mbert-hybrid-model",
-        use_auth_token=token
+        token=token
     )
 
     model = AutoModelForSequenceClassification.from_pretrained(
         "riddhi04/mbert-hybrid-model",
-        use_auth_token=token,
+        token=token,
         ignore_mismatched_sizes=True
     )
     model.to("cpu")
@@ -147,12 +147,12 @@ def load_xlmr():
 
     tokenizer = AutoTokenizer.from_pretrained(
         "riddhi04/xlmr-hybrid-model",
-        use_auth_token=token
+        token=token
     )
 
     model = AutoModelForSequenceClassification.from_pretrained(
         "riddhi04/xlmr-hybrid-model",
-        use_auth_token=token,
+        token=token,
         ignore_mismatched_sizes=True
     )
     model.to("cpu")
