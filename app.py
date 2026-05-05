@@ -5,6 +5,7 @@ import os
 import gdown
 import torch
 import re
+import requests
 
 from transformers import (
     AutoTokenizer,
@@ -40,33 +41,22 @@ theme = st.sidebar.selectbox(
 )
 
 if theme == "Dark":
-    st.markdown("""
-        <style>
-        .stApp {background-color: #0e1117; color: white;}
-        </style>
-    """, unsafe_allow_html=True)
+    st.markdown(
+        "<style>.stApp {background-color: #0e1117; color: white;}</style>",
+        unsafe_allow_html=True
+    )
 
 elif theme == "Light":
-    st.markdown("""
-        <style>
-        .stApp {background-color: #ffffff; color: black;}
-        </style>
-    """, unsafe_allow_html=True)
+    st.markdown(
+        "<style>.stApp {background-color: #ffffff; color: black;}</style>",
+        unsafe_allow_html=True
+    )
 
 elif theme == "Smooth":
-    st.markdown("""
-        <style>
-        .stApp {
-            background: linear-gradient(
-                to right,
-                #0f2027,
-                #203a43,
-                #2c5364
-            );
-            color: white;
-        }
-        </style>
-    """, unsafe_allow_html=True)
+    st.markdown(
+        "<style>.stApp {background: linear-gradient(to right,#0f2027,#203a43,#2c5364); color:white;}</style>",
+        unsafe_allow_html=True
+    )
 
 # -------------------------------------------------
 # Download classical model
@@ -75,9 +65,7 @@ elif theme == "Smooth":
 MODEL_PATH = "saved_model/model.pkl"
 
 if not os.path.exists(MODEL_PATH):
-
     os.makedirs("saved_model", exist_ok=True)
-
     gdown.download(
         "https://drive.google.com/uc?id=1uV2G8hRJF38FFABo-tWDPwtAxsDOmW5s",
         MODEL_PATH,
@@ -92,58 +80,6 @@ model = joblib.load("saved_model/model.pkl")
 vectorizer = joblib.load("saved_model/vectorizer.pkl")
 scaler = joblib.load("saved_model/scaler.pkl")
 culture_features = joblib.load("saved_model/culture_features.pkl")
-
-# -------------------------------------------------
-# Load mBERT
-# -------------------------------------------------
-
-@st.cache_resource
-def load_mbert():
-
-    token = st.secrets["HF_TOKEN_Riddhi"]
-
-    tokenizer = AutoTokenizer.from_pretrained(
-        "riddhi04/mbert-hybrid-model",
-        token=token
-    )
-
-    model = AutoModelForSequenceClassification.from_pretrained(
-        "riddhi04/mbert-hybrid-model",
-        token=token,
-        ignore_mismatched_sizes=True
-    )
-
-    model.to("cpu")
-    model.eval()
-
-    return model, tokenizer
-
-
-# -------------------------------------------------
-# Load XLM-R
-# -------------------------------------------------
-
-@st.cache_resource
-def load_xlmr():
-
-    token = st.secrets["HF_TOKEN_Riddhi"]
-
-    tokenizer = AutoTokenizer.from_pretrained(
-        "riddhi04/xlmr-hybrid-model",
-        token=token
-    )
-
-    model = AutoModelForSequenceClassification.from_pretrained(
-        "riddhi04/xlmr-hybrid-model",
-        token=token,
-        ignore_mismatched_sizes=True
-    )
-
-    model.to("cpu")
-    model.eval()
-
-    return model, tokenizer
-
 
 # -------------------------------------------------
 # Header
@@ -199,9 +135,7 @@ st.session_state.user_text = user_text
 # -------------------------------------------------
 
 def get_culture_features(text):
-
     text_lower = text.lower()
-
     features = {f: 0 for f in culture_features}
 
     keyword_map = {
@@ -218,44 +152,6 @@ def get_culture_features(text):
     return np.array([features[f] for f in culture_features]).reshape(1, -1)
 
 # -------------------------------------------------
-# FIXED Transformer prediction
-# -------------------------------------------------
-
-def transformer_predict(text, model, tokenizer):
-
-    # 🔥 CRITICAL FIX (prevents index error)
-    text = text[:512]
-
-    inputs = tokenizer(
-        text,
-        return_tensors="pt",
-        truncation=True,
-        padding="max_length",
-        max_length=128   # 🔥 reduced safely
-    )
-
-    with torch.no_grad():
-
-        outputs = model(**inputs)
-        logits = outputs.logits
-
-        if logits.shape[-1] == 1:
-
-            prob = torch.sigmoid(logits)
-
-            prediction = int(prob.item() > 0.5)
-            confidence = float(prob.item())
-
-        else:
-
-            probs = torch.softmax(logits, dim=1)
-
-            prediction = int(torch.argmax(probs, dim=1).item())
-            confidence = float(probs[0][prediction].item())
-
-    return prediction, confidence
-
-# -------------------------------------------------
 # Prediction
 # -------------------------------------------------
 
@@ -269,12 +165,13 @@ if st.button("Predict"):
 
             with st.spinner("Analyzing news content..."):
 
+                # ------------------------------
+                # RANDOM FOREST
+                # ------------------------------
                 if model_choice == "RandomForest":
 
                     text_vector = vectorizer.transform([user_text])
-
-                    culture_vector = get_culture_features(user_text)
-                    culture_vector = scaler.transform(culture_vector)
+                    culture_vector = scaler.transform(get_culture_features(user_text))
 
                     combined = np.hstack((text_vector.toarray(), culture_vector))
 
@@ -282,22 +179,65 @@ if st.button("Predict"):
                     probability = model.predict_proba(combined)[0]
                     confidence = probability[prediction]
 
+                # ------------------------------
+                # mBERT (FIXED)
+                # ------------------------------
                 elif model_choice == "mBERT":
 
-                    mb_model, mb_tokenizer = load_mbert()
+                    token = st.secrets["HF_TOKEN_Riddhi"]
 
-                    prediction, confidence = transformer_predict(
-                        user_text, mb_model, mb_tokenizer
+                    response = requests.post(
+                        "https://api-inference.huggingface.co/models/riddhi04/mbert-hybrid-model",
+                        headers={"Authorization": f"Bearer {token}"},
+                        json={"inputs": user_text}
                     )
 
+                    result = response.json()
+
+                    if isinstance(result, dict) and "error" in result:
+                        st.error("Model is loading... wait and retry")
+                        st.stop()
+
+                    if isinstance(result, list):
+                        result = result[0]
+
+                    label = result.get("label", "REAL")
+                    score = result.get("score", 0.5)
+
+                    prediction = 1 if "FAKE" in label.upper() else 0
+                    confidence = score
+
+                # ------------------------------
+                # XLM-R (FIXED)
+                # ------------------------------
                 elif model_choice == "XLM-RoBERTa":
 
-                    x_model, x_tokenizer = load_xlmr()
+                    token = st.secrets["HF_TOKEN_Riddhi"]
 
-                    prediction, confidence = transformer_predict(
-                        user_text, x_model, x_tokenizer
+                    response = requests.post(
+                        "https://api-inference.huggingface.co/models/riddhi04/xlmr-hybrid-model",
+                        headers={"Authorization": f"Bearer {token}"},
+                        json={"inputs": user_text}
                     )
 
+                    result = response.json()
+
+                    if isinstance(result, dict) and "error" in result:
+                        st.error("Model is loading... wait and retry")
+                        st.stop()
+
+                    if isinstance(result, list):
+                        result = result[0]
+
+                    label = result.get("label", "REAL")
+                    score = result.get("score", 0.5)
+
+                    prediction = 1 if "FAKE" in label.upper() else 0
+                    confidence = score
+
+                # ------------------------------
+                # MuRIL (UNCHANGED)
+                # ------------------------------
                 elif model_choice == "MuRIL":
 
                     token = st.secrets["HF_TOKEN"]
@@ -328,10 +268,8 @@ if st.button("Predict"):
             st.write(f"Confidence: {round(confidence*100,2)}%")
 
         except Exception as e:
-
             st.error("Error occurred during prediction.")
             st.write(str(e))
 
 st.divider()
-
 st.caption("B.Sc. Final Year Project | 2026")
