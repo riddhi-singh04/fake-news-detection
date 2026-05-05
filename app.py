@@ -1,216 +1,386 @@
-import streamlit as st
-import joblib
-import numpy as np
-import os
-import gdown
-import torch
-import re
-import requests
+import streamlit as stimport joblibimport numpy as npimport osimport gdownimport torchimport re
+
+from transformers import (AutoTokenizer,AutoModelForSequenceClassification)
 
 from gradio_client import Client
 
-# -------------------------------
-# PAGE CONFIG
-# -------------------------------
-st.set_page_config(page_title="Fake News Detection", layout="wide")
+-------------------------------------------------
 
-# -------------------------------
-# THEME
-# -------------------------------
-theme = st.sidebar.selectbox("Choose Theme", ["Dark", "Light", "Smooth"])
+Page configuration
 
-if theme == "Dark":
-    st.markdown("""
-        <style>
-        .stApp {background-color:#0e1117;color:white;}
-        </style>
-    """, unsafe_allow_html=True)
+-------------------------------------------------
 
-elif theme == "Light":
-    st.markdown("""
-        <style>
-        .stApp {background-color:white;color:black;}
-        </style>
-    """, unsafe_allow_html=True)
+st.set_page_config(page_title="Fake News Detection",page_icon="📰",layout="wide")
 
-elif theme == "Smooth":
-    st.markdown("""
-        <style>
-        .stApp {
-            background: linear-gradient(to right,#0f2027,#203a43,#2c5364);
-            color:white;
-        }
-        </style>
-    """, unsafe_allow_html=True)
+-------------------------------------------------
 
-# -------------------------------
-# LOAD CLASSICAL MODEL
-# -------------------------------
-model = joblib.load("saved_model/model.pkl")
-vectorizer = joblib.load("saved_model/vectorizer.pkl")
-scaler = joblib.load("saved_model/scaler.pkl")
-culture_features = joblib.load("saved_model/culture_features.pkl")
+Session state
 
-# -------------------------------
-# UI HEADER
-# -------------------------------
-st.title("📰 Fake News Verification Engine")
-st.subheader("AI-powered verification with Cultural Context Analysis")
-st.divider()
+-------------------------------------------------
 
-# -------------------------------
-# MODEL SELECT
-# -------------------------------
-model_choice = st.selectbox(
-    "Select Model",
-    ["RandomForest", "mBERT", "XLM-RoBERTa", "MuRIL"]
+if "user_text" not in st.session_state:st.session_state.user_text = ""
+
+-------------------------------------------------
+
+Theme toggle
+
+-------------------------------------------------
+
+theme = st.sidebar.selectbox("Choose Theme",["Dark", "Light", "Smooth"])
+
+if theme == "Dark":st.markdown(""".stApp {background-color: #0e1117;color: white;}""",unsafe_allow_html=True)
+
+elif theme == "Light":st.markdown(""".stApp {background-color: #ffffff;color: black;}""",unsafe_allow_html=True)
+
+elif theme == "Smooth":st.markdown(""".stApp {background: linear-gradient(to right,#0f2027,#203a43,#2c5364);color: white;}""",unsafe_allow_html=True)
+
+-------------------------------------------------
+
+Download classical model
+
+-------------------------------------------------
+
+MODEL_PATH = "saved_model/model.pkl"
+
+if not os.path.exists(MODEL_PATH):
+
+os.makedirs("saved_model", exist_ok=True)
+
+gdown.download(
+    "https://drive.google.com/uc?id=1uV2G8hRJF38FFABo-tWDPwtAxsDOmW5s",
+    MODEL_PATH,
+    quiet=False
 )
 
-# -------------------------------
-# EXAMPLES
-# -------------------------------
+-------------------------------------------------
+
+Load classical models
+
+-------------------------------------------------
+
+model = joblib.load("saved_model/model.pkl")vectorizer = joblib.load("saved_model/vectorizer.pkl")scaler = joblib.load("saved_model/scaler.pkl")culture_features = joblib.load("saved_model/culture_features.pkl")
+
+-------------------------------------------------
+
+Load mBERT
+
+-------------------------------------------------
+
+@st.cache_resourcedef load_mbert():
+
+token = st.secrets["HF_TOKEN_Riddhi"]
+
+tokenizer = AutoTokenizer.from_pretrained(
+    "riddhi04/mbert-hybrid-model",
+    token=token
+)
+
+model = AutoModelForSequenceClassification.from_pretrained(
+    "riddhi04/mbert-hybrid-model",
+    token=token,
+    ignore_mismatched_sizes=True
+)
+model.to("cpu")
+
+model.eval()
+
+return model, tokenizer
+
+-------------------------------------------------
+
+Load XLM-R
+
+-------------------------------------------------
+
+@st.cache_resourcedef load_xlmr():
+
+token = st.secrets["HF_TOKEN_Riddhi"]
+
+tokenizer = AutoTokenizer.from_pretrained(
+    "riddhi04/xlmr-hybrid-model",
+    token=token
+)
+
+model = AutoModelForSequenceClassification.from_pretrained(
+    "riddhi04/xlmr-hybrid-model",
+    token=token,
+    ignore_mismatched_sizes=True
+)
+model.to("cpu")
+
+model.eval()
+
+return model, tokenizer
+
+-------------------------------------------------
+
+Header
+
+-------------------------------------------------
+
+st.title("📰 Fake News Verification Engine")
+
+st.subheader("AI-powered verification with Cultural Context Analysis")
+
+st.divider()
+
+-------------------------------------------------
+
+Model selector
+
+-------------------------------------------------
+
+model_choice = st.selectbox("Select Model",["RandomForest","mBERT","XLM-RoBERTa","MuRIL"])
+
+-------------------------------------------------
+
+Example buttons
+
+-------------------------------------------------
+
+st.subheader("Try Example News")
+
 col1, col2 = st.columns(2)
 
 with col1:
-    if st.button("Load Real Example"):
-        st.session_state.text = "RBI revised repo rates to control inflation."
+
+if st.button("Load Real News Example"):
+
+    st.session_state.user_text = (
+        "The Reserve Bank of India announced a revision "
+        "in repo rates to control inflation."
+    )
 
 with col2:
-    if st.button("Load Fake Example"):
-        st.session_state.text = "Drinking bleach cures all diseases instantly."
 
-# -------------------------------
-# INPUT
-# -------------------------------
-text = st.text_area("Enter News", value=st.session_state.get("text",""))
+if st.button("Load Fake News Example"):
 
-# -------------------------------
-# CULTURE FEATURES
-# -------------------------------
+    st.session_state.user_text = (
+        "Scientists confirm drinking bleach cures all diseases instantly."
+    )
+
+-------------------------------------------------
+
+Input
+
+-------------------------------------------------
+
+user_text = st.text_area("Enter News Text",height=180,value=st.session_state.user_text)
+
+st.session_state.user_text = user_text
+
+-------------------------------------------------
+
+Cultural features
+
+-------------------------------------------------
+
 def get_culture_features(text):
-    text = text.lower()
-    features = {f: 0 for f in culture_features}
 
-    if "india" in text:
-        features["national_identity_count"] += 1
-    if "cure" in text:
-        features["health_belief_count"] += 1
+text_lower = text.lower()
 
-    return np.array([features[f] for f in culture_features]).reshape(1, -1)
+features = {f: 0 for f in culture_features}
 
-# -------------------------------
-# SAFE HF CALL (IMPORTANT FIX)
-# -------------------------------
-def hf_predict(api_url, text, token):
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json"
-    }
+keyword_map = {
 
-    response = requests.post(api_url, headers=headers, json={"inputs": text})
+    "national_identity_count":
+        ["india", "country", "nation"],
 
-    if response.status_code != 200:
-        raise Exception(response.text)
+    "health_belief_count":
+        ["cure", "disease", "virus"],
 
-    try:
-        result = response.json()
-    except:
-        raise Exception("Invalid response from model")
+    "community_tension_count":
+        ["riot", "violence", "attack"],
 
-    if not result:
-        raise Exception("Empty response")
+    "education_count":
+        ["school", "college", "university"]
+}
 
-    if isinstance(result, list):
-        result = result[0]
+for name, words in keyword_map.items():
 
-    label = result.get("label", "REAL")
-    score = result.get("score", 0.5)
+    if name in features:
 
-    pred = 1 if "FAKE" in label.upper() else 0
+        features[name] = sum(
+            1 for w in words
+            if w in text_lower
+        )
 
-    return pred, score
+vector = np.array(
+    [features[f] for f in culture_features]
+).reshape(1, -1)
 
-# -------------------------------
-# PREDICT BUTTON
-# -------------------------------
+return vector
+
+-------------------------------------------------
+
+Transformer prediction
+
+-------------------------------------------------
+
+def transformer_predict(text, model, tokenizer):
+
+inputs = tokenizer(
+    text,
+    return_tensors="pt",
+    truncation=True,
+    padding="max_length",
+    max_length=256
+)
+
+with torch.no_grad():
+
+    outputs = model(**inputs)
+
+    logits = outputs.logits
+
+    if logits.shape[-1] == 1:
+
+        prob = torch.sigmoid(logits)
+
+        prediction = int(prob.item() > 0.5)
+
+        confidence = float(prob.item())
+
+    else:
+
+        probs = torch.softmax(
+            logits,
+            dim=1
+        )
+
+        prediction = int(
+            torch.argmax(
+                probs,
+                dim=1
+            ).item()
+        )
+
+        confidence = float(
+            probs[0][prediction].item()
+        )
+
+return prediction, confidence
+
+-------------------------------------------------
+
+Prediction
+
+-------------------------------------------------
+
 if st.button("Predict"):
 
-    if text.strip() == "":
-        st.warning("Enter some text")
-    else:
-        try:
+if user_text.strip() == "":
 
-            # --------------------------
-            # RANDOM FOREST
-            # --------------------------
+    st.warning("Please enter news text.")
+
+else:
+
+    try:
+
+        with st.spinner("Analyzing news content..."):
+
             if model_choice == "RandomForest":
 
-                vec = vectorizer.transform([text])
-                cult = scaler.transform(get_culture_features(text))
+                text_vector = vectorizer.transform(
+                    [user_text]
+                )
 
-                final = np.hstack((vec.toarray(), cult))
+                culture_vector = get_culture_features(
+                    user_text
+                )
 
-                pred = model.predict(final)[0]
-                prob = model.predict_proba(final)[0]
+                culture_vector = scaler.transform(
+                    culture_vector
+                )
 
-                prediction = int(pred)
-                confidence = prob[pred]
+                combined = np.hstack(
+                    (
+                        text_vector.toarray(),
+                        culture_vector
+                    )
+                )
 
-            # --------------------------
-            # mBERT
-            # --------------------------
+                prediction = int(
+                    model.predict(combined)[0]
+                )
+
+                probability = model.predict_proba(
+                    combined
+                )[0]
+
+                confidence = probability[
+                    prediction
+                ]
+
             elif model_choice == "mBERT":
 
-                prediction, confidence = hf_predict(
-                    "https://api-inference.huggingface.co/models/riddhi04/mbert-hybrid-model",
-                    text,
-                    st.secrets["HF_TOKEN_Riddhi"]
+                mb_model, mb_tokenizer = load_mbert()
+
+                prediction, confidence = transformer_predict(
+                    user_text,
+                    mb_model,
+                    mb_tokenizer
                 )
 
-            # --------------------------
-            # XLM-R
-            # --------------------------
             elif model_choice == "XLM-RoBERTa":
 
-                prediction, confidence = hf_predict(
-                    "https://api-inference.huggingface.co/models/riddhi04/xlmr-hybrid-model",
-                    text,
-                    st.secrets["HF_TOKEN_Riddhi"]
+                x_model, x_tokenizer = load_xlmr()
+
+                prediction, confidence = transformer_predict(
+                    user_text,
+                    x_model,
+                    x_tokenizer
                 )
 
-            # --------------------------
-            # MURIL (UNCHANGED)
-            # --------------------------
             elif model_choice == "MuRIL":
+
+                token = st.secrets["HF_TOKEN"]
 
                 client = Client(
                     "pseudokoo/FakeNews-Detector-1-API",
-                    token=st.secrets["HF_TOKEN"]
+                    token=token
                 )
 
                 result = client.predict(
-                    text=text,
+                    text=user_text,
                     api_name="/predict_fake_news"
                 )
 
-                result = str(result)
+                result_str = str(result)
 
-                prediction = 1 if "FAKE" in result.upper() else 0
-                confidence = 0.85
+                prediction = (
+                    1 if "FAKE" in result_str.upper()
+                    else 0
+                )
 
-            # --------------------------
-            # OUTPUT
-            # --------------------------
-            if prediction == 1:
-                st.error("🚨 FAKE NEWS")
-            else:
-                st.success("✅ REAL NEWS")
+                match = re.search(
+                    r"(\d+(\.\d+)?)%",
+                    result_str
+                )
 
-            st.write(f"Confidence: {round(confidence*100,2)}%")
+                confidence = (
+                    float(match.group(1)) / 100
+                    if match else 0.85
+                )
 
-        except Exception as e:
-            st.error("Error occurred during prediction")
-            st.write(str(e))
+        if prediction == 1:
+
+            st.error("🚨 Prediction: FAKE")
+
+        else:
+
+            st.success("✅ Prediction: REAL")
+
+        st.write(
+            f"Confidence: {round(confidence*100,2)}%"
+        )
+
+    except Exception as e:
+
+        st.error("Error occurred during prediction.")
+
+        st.write(str(e))
 
 st.divider()
+
 st.caption("B.Sc. Final Year Project | 2026")
