@@ -362,37 +362,64 @@ if st.button("Predict"):
                         prediction
                     ]
 
+
+                import requests
+
                 elif model_choice == "mBERT":
-
+                
                     token = st.secrets["HF_TOKEN_Riddhi"]
+                
+                    API_URL = "https://api-inference.huggingface.co/models/riddhi04/mbert-hybrid-model"
+                
+                    headers = {
+                        "Authorization": f"Bearer {token}"
+                    }
+                
+                    response = requests.post(
+                        API_URL,
+                        headers=headers,
+                        json={"inputs": user_text}
+                    )
+                
+                    result = response.json()
+                
+                    # SAFE parsing
+                    if isinstance(result, list):
+                        result = result[0]
+                
+                    label = result.get("label", "REAL")
+                    score = result.get("score", 0.85)
+                
+                    prediction = 1 if "FAKE" in label.upper() else 0
+                    confidence = score
 
-                    client = Client(
-                        "riddhi04/mbert-hybrid-model",
-                        token=token
-                    )
-                    result = client.predict(
-                        user_text,
-                        api_name="/predict"
-                    )
-                    result_str = str(result)
-                    prediction = 1 if "FAKE" in result_str.upper() else 0
-                    confidence = 0.85
 
                 elif model_choice == "XLM-RoBERTa":
-
+                
                     token = st.secrets["HF_TOKEN_Riddhi"]
-
-                    client = Client(
-                        "riddhi04/xlmr-hybrid-model",
-                        token=token
+            
+                    API_URL = "https://api-inference.huggingface.co/models/riddhi04/xlmr-hybrid-model"
+                
+                    headers = {
+                        "Authorization": f"Bearer {token}"
+                    }
+                
+                    response = requests.post(
+                        API_URL,
+                        headers=headers,
+                        json={"inputs": user_text}
                     )
-                    result = client.predict(
-                        user_text,
-                        api_name="/predict"
-                    )
-                    result_str = str(result)
-                    prediction = 1 if "FAKE" in result_str.upper() else 0
-                    confidence = 0.85
+                
+                    result = response.json()
+                
+                    if isinstance(result, list):
+                        result = result[0]
+                
+                    label = result.get("label", "REAL")
+                    score = result.get("score", 0.85)
+                
+                    prediction = 1 if "FAKE" in label.upper() else 0
+                    confidence = score
 
                 elif model_choice == "MuRIL":
 
