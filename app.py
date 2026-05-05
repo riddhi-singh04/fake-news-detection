@@ -41,22 +41,13 @@ theme = st.sidebar.selectbox(
 )
 
 if theme == "Dark":
-    st.markdown(
-        "<style>.stApp {background-color: #0e1117; color: white;}</style>",
-        unsafe_allow_html=True
-    )
+    st.markdown("<style>.stApp {background-color: #0e1117; color: white;}</style>", unsafe_allow_html=True)
 
 elif theme == "Light":
-    st.markdown(
-        "<style>.stApp {background-color: #ffffff; color: black;}</style>",
-        unsafe_allow_html=True
-    )
+    st.markdown("<style>.stApp {background-color: #ffffff; color: black;}</style>", unsafe_allow_html=True)
 
 elif theme == "Smooth":
-    st.markdown(
-        "<style>.stApp {background: linear-gradient(to right,#0f2027,#203a43,#2c5364); color:white;}</style>",
-        unsafe_allow_html=True
-    )
+    st.markdown("<style>.stApp {background: linear-gradient(to right,#0f2027,#203a43,#2c5364); color:white;}</style>", unsafe_allow_html=True)
 
 # -------------------------------------------------
 # Download classical model
@@ -108,15 +99,11 @@ col1, col2 = st.columns(2)
 
 with col1:
     if st.button("Load Real News Example"):
-        st.session_state.user_text = (
-            "The Reserve Bank of India announced a revision in repo rates to control inflation."
-        )
+        st.session_state.user_text = "The Reserve Bank of India announced a revision in repo rates to control inflation."
 
 with col2:
     if st.button("Load Fake News Example"):
-        st.session_state.user_text = (
-            "Scientists confirm drinking bleach cures all diseases instantly."
-        )
+        st.session_state.user_text = "Scientists confirm drinking bleach cures all diseases instantly."
 
 # -------------------------------------------------
 # Input
@@ -180,7 +167,7 @@ if st.button("Predict"):
                     confidence = probability[prediction]
 
                 # ------------------------------
-                # mBERT (FIXED)
+                # mBERT (FIXED JSON ERROR)
                 # ------------------------------
                 elif model_choice == "mBERT":
 
@@ -192,7 +179,17 @@ if st.button("Predict"):
                         json={"inputs": user_text}
                     )
 
-                    result = response.json()
+                    if response.status_code != 200:
+                        st.error("Model not ready / invalid response")
+                        st.write(response.text)
+                        st.stop()
+
+                    try:
+                        result = response.json()
+                    except:
+                        st.error("Invalid response from model")
+                        st.write(response.text)
+                        st.stop()
 
                     if isinstance(result, dict) and "error" in result:
                         st.error("Model is loading... wait and retry")
@@ -208,7 +205,7 @@ if st.button("Predict"):
                     confidence = score
 
                 # ------------------------------
-                # XLM-R (FIXED)
+                # XLM-R (FIXED JSON ERROR)
                 # ------------------------------
                 elif model_choice == "XLM-RoBERTa":
 
@@ -220,7 +217,17 @@ if st.button("Predict"):
                         json={"inputs": user_text}
                     )
 
-                    result = response.json()
+                    if response.status_code != 200:
+                        st.error("Model not ready / invalid response")
+                        st.write(response.text)
+                        st.stop()
+
+                    try:
+                        result = response.json()
+                    except:
+                        st.error("Invalid response from model")
+                        st.write(response.text)
+                        st.stop()
 
                     if isinstance(result, dict) and "error" in result:
                         st.error("Model is loading... wait and retry")
@@ -257,7 +264,6 @@ if st.button("Predict"):
                     prediction = 1 if "FAKE" in result_str.upper() else 0
 
                     match = re.search(r"(\d+(\.\d+)?)%", result_str)
-
                     confidence = float(match.group(1)) / 100 if match else 0.85
 
             if prediction == 1:
