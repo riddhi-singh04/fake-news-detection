@@ -1,60 +1,72 @@
 import streamlit as st
 import requests
 import pickle
-import numpy as np
 
-# -----------------------------
-# LOAD CLASSICAL MODELS
-# -----------------------------
+# =========================
+# PAGE CONFIG
+# =========================
+st.set_page_config(page_title="Fake News Detection", layout="centered")
+
+st.title("📰 Fake News Detection System")
+st.write("B.Sc. Final Year Project | 2026")
+
+# =========================
+# LOAD CLASSICAL MODEL (SAFE)
+# =========================
 @st.cache_resource
 def load_classical():
-    vectorizer = pickle.load(open("saved_model/vectorizer.pkl", "rb"))
-    scaler = pickle.load(open("saved_model/scaler.pkl", "rb"))
-    model = pickle.load(open("saved_model/culture_features.pkl", "rb"))
-    return vectorizer, scaler, model
+    try:
+        vectorizer = pickle.load(open("saved_model/vectorizer.pkl", "rb"))
+        scaler = pickle.load(open("saved_model/scaler.pkl", "rb"))
+        model = pickle.load(open("saved_model/culture_features.pkl", "rb"))
+        return vectorizer, scaler, model
+    except:
+        return None, None, None
 
 vectorizer, scaler, rf_model = load_classical()
 
-# -----------------------------
-# HUGGINGFACE TOKEN
-# -----------------------------
+# =========================
+# TOKEN
+# =========================
 HF_TOKEN = st.secrets["HF_TOKEN"]
 
 headers = {
     "Authorization": f"Bearer {HF_TOKEN}"
 }
 
-# -----------------------------
-# HF API FUNCTION (FIXED)
-# -----------------------------
-def hf_predict(api_url, text):
-    payload = {"inputs": text}
-    response = requests.post(api_url, headers=headers, json=payload)
+# =========================
+# HF API FUNCTION (COMMON)
+# =========================
+def hf_predict(repo_id, text):
+    API_URL = f"https://api-inference.huggingface.co/models/{repo_id}"
+
+    response = requests.post(
+        API_URL,
+        headers=headers,
+        json={"inputs": text}
+    )
 
     if response.status_code != 200:
         raise Exception(response.text)
 
     result = response.json()
 
-    # Handle output safely
+    # safe extraction
     if isinstance(result, list):
         label = result[0]["label"]
     else:
         label = result["label"]
 
-    # ✅ FIXED LABEL MAPPING
-    prediction = 0 if "REAL" in label.upper() else 1
-    return prediction
+    # fix label issue
+    if "REAL" in label.upper() or "LABEL_0" in label.upper():
+        return 0
+    else:
+        return 1
 
 
-# -----------------------------
-# UI
-# -----------------------------
-st.set_page_config(page_title="Fake News Detection", layout="centered")
-
-st.title("📰 Fake News Detection System")
-st.write("B.Sc. Final Year Project | 2026")
-
+# =========================
+# INPUT
+# =========================
 text_input = st.text_area("Enter News Text")
 
 model_choice = st.selectbox(
@@ -62,51 +74,58 @@ model_choice = st.selectbox(
     ["Random Forest", "MuRIL", "mBERT", "XLM-RoBERTa"]
 )
 
+# =========================
+# PREDICT BUTTON
+# =========================
 if st.button("Predict"):
 
     if text_input.strip() == "":
-        st.warning("Please enter some text")
+        st.warning("Please enter text")
     else:
         try:
 
-            # -----------------------------
+            # =========================
             # RANDOM FOREST
-            # -----------------------------
+            # =========================
             if model_choice == "Random Forest":
+                if vectorizer is None:
+                    st.error("Random Forest not available")
+                    st.stop()
+
                 vec = vectorizer.transform([text_input]).toarray()
                 vec = scaler.transform(vec)
                 pred = rf_model.predict(vec)[0]
 
-            # -----------------------------
-            # MuRIL (WORKING)
-            # -----------------------------
+            # =========================
+            # MURIL (WORKING BASELINE)
+            # =========================
             elif model_choice == "MuRIL":
                 pred = hf_predict(
-                    "https://api-inference.huggingface.co/pipeline/text-classification/google/muril-base-cased",
+                    "google/muril-base-cased",
                     text_input
                 )
 
-            # -----------------------------
-            # mBERT (FIXED ENDPOINT)
-            # -----------------------------
+            # =========================
+            # MBERT (YOUR MODEL)
+            # =========================
             elif model_choice == "mBERT":
                 pred = hf_predict(
-                    "https://api-inference.huggingface.co/pipeline/text-classification/riddhi04/mbert-hybrid-model",
+                    "riddhi04/mbert-hybrid-model",
                     text_input
                 )
 
-            # -----------------------------
-            # XLM-R (FIXED ENDPOINT)
-            # -----------------------------
+            # =========================
+            # XLM-R (YOUR MODEL)
+            # =========================
             elif model_choice == "XLM-RoBERTa":
                 pred = hf_predict(
-                    "https://api-inference.huggingface.co/pipeline/text-classification/riddhi04/xlmr-hybrid-model",
+                    "riddhi04/xlmr-hybrid-model",
                     text_input
                 )
 
-            # -----------------------------
+            # =========================
             # OUTPUT
-            # -----------------------------
+            # =========================
             if pred == 1:
                 st.error("🚨 Fake News Detected")
             else:
