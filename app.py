@@ -7,6 +7,7 @@ import torch
 import re
 import requests
 
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from gradio_client import Client
 
 # -------------------------------
@@ -15,36 +16,13 @@ from gradio_client import Client
 st.set_page_config(page_title="Fake News Detection", layout="wide")
 
 # -------------------------------
-# THEME
+# SESSION STATE
 # -------------------------------
-theme = st.sidebar.selectbox("Choose Theme", ["Dark", "Light", "Smooth"])
-
-if theme == "Dark":
-    st.markdown("""
-        <style>
-        .stApp {background-color:#0e1117;color:white;}
-        </style>
-    """, unsafe_allow_html=True)
-
-elif theme == "Light":
-    st.markdown("""
-        <style>
-        .stApp {background-color:white;color:black;}
-        </style>
-    """, unsafe_allow_html=True)
-
-elif theme == "Smooth":
-    st.markdown("""
-        <style>
-        .stApp {
-            background: linear-gradient(to right,#0f2027,#203a43,#2c5364);
-            color:white;
-        }
-        </style>
-    """, unsafe_allow_html=True)
+if "user_text" not in st.session_state:
+    st.session_state.user_text = ""
 
 # -------------------------------
-# LOAD CLASSICAL MODEL
+# LOAD CLASSICAL MODELS
 # -------------------------------
 model = joblib.load("saved_model/model.pkl")
 vectorizer = joblib.load("saved_model/vectorizer.pkl")
@@ -52,43 +30,35 @@ scaler = joblib.load("saved_model/scaler.pkl")
 culture_features = joblib.load("saved_model/culture_features.pkl")
 
 # -------------------------------
-# UI HEADER
+# UI
 # -------------------------------
 st.title("📰 Fake News Verification Engine")
-st.subheader("AI-powered verification with Cultural Context Analysis")
-st.divider()
 
-# -------------------------------
-# MODEL SELECT
-# -------------------------------
 model_choice = st.selectbox(
     "Select Model",
     ["RandomForest", "mBERT", "XLM-RoBERTa", "MuRIL"]
 )
 
-# -------------------------------
-# EXAMPLES
-# -------------------------------
+st.subheader("Try Example News")
+
 col1, col2 = st.columns(2)
 
 with col1:
-    if st.button("Load Real Example"):
-        st.session_state.text = "RBI revised repo rates to control inflation."
+    if st.button("Load Real News Example"):
+        st.session_state.user_text = "The Reserve Bank of India announced a revision in repo rates."
 
 with col2:
-    if st.button("Load Fake Example"):
-        st.session_state.text = "Drinking bleach cures all diseases instantly."
+    if st.button("Load Fake News Example"):
+        st.session_state.user_text = "Scientists confirm drinking bleach cures all diseases instantly."
 
-# -------------------------------
-# INPUT
-# -------------------------------
-text = st.text_area("Enter News", value=st.session_state.get("text",""))
+user_text = st.text_area("Enter News Text", value=st.session_state.user_text)
 
 # -------------------------------
 # CULTURE FEATURES
 # -------------------------------
 def get_culture_features(text):
     text = text.lower()
+
     features = {f: 0 for f in culture_features}
 
     if "india" in text:
@@ -99,44 +69,28 @@ def get_culture_features(text):
     return np.array([features[f] for f in culture_features]).reshape(1, -1)
 
 # -------------------------------
-# SAFE HF CALL (IMPORTANT FIX)
+# TRANSFORMER PREDICT
 # -------------------------------
-def hf_predict(api_url, text, token):
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json"
-    }
+def transformer_predict(text, model, tokenizer):
+    inputs = tokenizer(text, return_tensors="pt", truncation=True, padding=True)
 
-    response = requests.post(api_url, headers=headers, json={"inputs": text})
+    with torch.no_grad():
+        outputs = model(**inputs)
+        logits = outputs.logits
 
-    if response.status_code != 200:
-        raise Exception(response.text)
+        probs = torch.softmax(logits, dim=1)
+        pred = torch.argmax(probs, dim=1).item()
+        conf = probs[0][pred].item()
 
-    try:
-        result = response.json()
-    except:
-        raise Exception("Invalid response from model")
-
-    if not result:
-        raise Exception("Empty response")
-
-    if isinstance(result, list):
-        result = result[0]
-
-    label = result.get("label", "REAL")
-    score = result.get("score", 0.5)
-
-    pred = 1 if "FAKE" in label.upper() else 0
-
-    return pred, score
+    return pred, conf
 
 # -------------------------------
-# PREDICT BUTTON
+# PREDICTION BUTTON (BOTTOM)
 # -------------------------------
 if st.button("Predict"):
 
-    if text.strip() == "":
-        st.warning("Enter some text")
+    if user_text.strip() == "":
+        st.warning("Please enter text")
     else:
         try:
 
@@ -145,8 +99,9 @@ if st.button("Predict"):
             # --------------------------
             if model_choice == "RandomForest":
 
-                vec = vectorizer.transform([text])
-                cult = scaler.transform(get_culture_features(text))
+                vec = vectorizer.transform([user_text])
+                cult = get_culture_features(user_text)
+                cult = scaler.transform(cult)
 
                 final = np.hstack((vec.toarray(), cult))
 
@@ -161,41 +116,77 @@ if st.button("Predict"):
             # --------------------------
             elif model_choice == "mBERT":
 
-                prediction, confidence = hf_predict(
+                token = st.secrets["HF_TOKEN_Riddhi"]
+
+                headers = {
+                    "Authorization": f"Bearer {token}"
+                }
+
+                response = requests.post(
                     "https://api-inference.huggingface.co/models/riddhi04/mbert-hybrid-model",
-                    text,
-                    st.secrets["HF_TOKEN_Riddhi"]
+                    headers=headers,
+                    json={"inputs": user_text}
                 )
+
+                result = response.json()
+
+                if isinstance(result, list):
+                    result = result[0]
+
+                label = result.get("label", "REAL")
+                score = result.get("score", 0.5)
+
+                prediction = 1 if "FAKE" in label.upper() else 0
+                confidence = score
 
             # --------------------------
             # XLM-R
             # --------------------------
             elif model_choice == "XLM-RoBERTa":
 
-                prediction, confidence = hf_predict(
+                token = st.secrets["HF_TOKEN_Riddhi"]
+
+                headers = {
+                    "Authorization": f"Bearer {token}"
+                }
+
+                response = requests.post(
                     "https://api-inference.huggingface.co/models/riddhi04/xlmr-hybrid-model",
-                    text,
-                    st.secrets["HF_TOKEN_Riddhi"]
+                    headers=headers,
+                    json={"inputs": user_text}
                 )
 
+                result = response.json()
+
+                if isinstance(result, list):
+                    result = result[0]
+
+                label = result.get("label", "REAL")
+                score = result.get("score", 0.5)
+
+                prediction = 1 if "FAKE" in label.upper() else 0
+                confidence = score
+
             # --------------------------
-            # MURIL (UNCHANGED)
+            # MURIL
             # --------------------------
             elif model_choice == "MuRIL":
 
+                token = st.secrets["HF_TOKEN"]
+
                 client = Client(
                     "pseudokoo/FakeNews-Detector-1-API",
-                    token=st.secrets["HF_TOKEN"]
+                    token=token
                 )
 
                 result = client.predict(
-                    text=text,
+                    text=user_text,
                     api_name="/predict_fake_news"
                 )
 
                 result = str(result)
 
-                prediction = 1 if "FAKE" in result.upper() else 0
+                prediction = 1 if "FAKE" in result else 0
                 confidence = 0.85
 
             # --------------------------
@@ -206,11 +197,8 @@ if st.button("Predict"):
             else:
                 st.success("✅ REAL NEWS")
 
-            st.write(f"Confidence: {round(confidence*100,2)}%")
+            st.write(f"Confidence: {round(confidence * 100, 2)}%")
 
         except Exception as e:
             st.error("Error occurred during prediction")
             st.write(str(e))
-
-st.divider()
-st.caption("B.Sc. Final Year Project | 2026")
