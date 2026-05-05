@@ -364,23 +364,35 @@ if st.button("Predict"):
 
                 elif model_choice == "mBERT":
 
-                    mb_model, mb_tokenizer = load_mbert()
+                    token = st.secrets["HF_TOKEN_Riddhi"]
 
-                    prediction, confidence = transformer_predict(
-                        user_text,
-                        mb_model,
-                        mb_tokenizer
+                    client = Client(
+                        "riddhi04/mbert-hybrid-model",
+                        token=token
                     )
+                    result = client.predict(
+                        user_text,
+                        api_name="/predict"
+                    )
+                    result_str = str(result)
+                    prediction = 1 if "FAKE" in result_str.upper() else 0
+                    confidence = 0.85
 
                 elif model_choice == "XLM-RoBERTa":
 
-                    x_model, x_tokenizer = load_xlmr()
+                    token = st.secrets["HF_TOKEN_Riddhi"]
 
-                    prediction, confidence = transformer_predict(
-                        user_text,
-                        x_model,
-                        x_tokenizer
+                    client = Client(
+                        "riddhi04/xlmr-hybrid-model",
+                        token=token
                     )
+                    result = client.predict(
+                        user_text,
+                        api_name="/predict"
+                    )
+                    result_str = str(result)
+                    prediction = 1 if "FAKE" in result_str.upper() else 0
+                    confidence = 0.85
 
                 elif model_choice == "MuRIL":
 
