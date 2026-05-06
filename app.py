@@ -225,40 +225,22 @@ if st.button("Predict"):
                 # ------------------------------
                 # XLM-R (FIXED JSON ERROR)
                 # ------------------------------
+
                 elif model_choice == "XLM-RoBERTa":
-
                     token = st.secrets["HF_TOKEN_Riddhi"]
-
-                    response = requests.post(
-                        "https://api-inference.huggingface.co/models/riddhi04/xlmr-hybrid-model",
-                        headers={"Authorization": f"Bearer {token}"},
-                        json={"inputs": user_text}
+                    client = Client(
+                        "riddhi04/xlmr-hybrid-model",  # ← the Space name
+                        token=token
                     )
+                    result = client.predict(
+                        user_text,
+                        api_name="/predict"
+                    )
+                    result_str = str(result)
+                    prediction = 1 if "FAKE" in result_str.upper() else 0
+                    match = re.search(r"(\d+(\.\d+)?)%", result_str)
+                    confidence = float(match.group(1)) / 100 if match else 0.85
 
-                    if response.status_code != 200:
-                        st.error("Model not ready / invalid response")
-                        st.write(response.text)
-                        st.stop()
-
-                    try:
-                        result = response.json()
-                    except:
-                        st.error("Invalid response from model")
-                        st.write(response.text)
-                        st.stop()
-
-                    if isinstance(result, dict) and "error" in result:
-                        st.error("Model is loading... wait and retry")
-                        st.stop()
-
-                    if isinstance(result, list):
-                        result = result[0]
-
-                    label = result.get("label", "REAL")
-                    score = result.get("score", 0.5)
-
-                    prediction = 1 if "FAKE" in label.upper() else 0
-                    confidence = score
 
                 # ------------------------------
                 # MuRIL (UNCHANGED)
