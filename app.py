@@ -174,7 +174,7 @@ if st.button("Predict"):
                 
                     client = Client(
                         "riddhi04/mbert-hybrid-model",  # ← your Space name
-                        hf_token=token
+                        token=token
                     )
                 
                     result = client.predict(
