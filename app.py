@@ -170,39 +170,53 @@ if st.button("Predict"):
                 # mBERT (FIXED JSON ERROR)
                 # ------------------------------
                 elif model_choice == "mBERT":
-
                     token = st.secrets["HF_TOKEN_Riddhi"]
-
-                    response = requests.post(
-                        "https://api-inference.huggingface.co/models/riddhi04/mbert-hybrid-model",
-                        headers={"Authorization": f"Bearer {token}"},
-                        json={"inputs": user_text}
+                    client = Client(
+                        "riddhi04/mbert-space",       # ← your new Space name
+                        hf_token=token
                     )
+                    result = client.predict(
+                        user_text,
+                        api_name="/predict"           # ← matches api_name in Gradio
+                    )
+                    result_str = str(result)
+                    prediction = 1 if "FAKE" in result_str.upper() else 0
+                    match = re.search(r"(\d+(\.\d+)?)%", result_str)
+                    confidence = float(match.group(1)) / 100 if match else 0.85
+                # elif model_choice == "mBERT":
 
-                    if response.status_code != 200:
-                        st.error("Model not ready / invalid response")
-                        st.write(response.text)
-                        st.stop()
+                #     token = st.secrets["HF_TOKEN_Riddhi"]
 
-                    try:
-                        result = response.json()
-                    except:
-                        st.error("Invalid response from model")
-                        st.write(response.text)
-                        st.stop()
+                #     response = requests.post(
+                #         "https://api-inference.huggingface.co/models/riddhi04/mbert-hybrid-model",
+                #         headers={"Authorization": f"Bearer {token}"},
+                #         json={"inputs": user_text}
+                #     )
 
-                    if isinstance(result, dict) and "error" in result:
-                        st.error("Model is loading... wait and retry")
-                        st.stop()
+                #     if response.status_code != 200:
+                #         st.error("Model not ready / invalid response")
+                #         st.write(response.text)
+                #         st.stop()
 
-                    if isinstance(result, list):
-                        result = result[0]
+                #     try:
+                #         result = response.json()
+                #     except:
+                #         st.error("Invalid response from model")
+                #         st.write(response.text)
+                #         st.stop()
 
-                    label = result.get("label", "REAL")
-                    score = result.get("score", 0.5)
+                #     if isinstance(result, dict) and "error" in result:
+                #         st.error("Model is loading... wait and retry")
+                #         st.stop()
 
-                    prediction = 1 if "FAKE" in label.upper() else 0
-                    confidence = score
+                #     if isinstance(result, list):
+                #         result = result[0]
+
+                #     label = result.get("label", "REAL")
+                #     score = result.get("score", 0.5)
+
+                #     prediction = 1 if "FAKE" in label.upper() else 0
+                #     confidence = score
 
                 # ------------------------------
                 # XLM-R (FIXED JSON ERROR)
