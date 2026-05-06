@@ -171,38 +171,45 @@ if st.button("Predict"):
                 # ------------------------------
                 elif model_choice == "mBERT":
 
-                    token = st.secrets["HF_TOKEN_Riddhi"]
-
-                    response = requests.post(
-                        "https://api-inference.huggingface.co/models/riddhi04/mbert-hybrid-model",
-                        headers={"Authorization": f"Bearer {token}"},
-                        json={"inputs": user_text}
-                    )
-
-                    if response.status_code != 200:
-                        st.error("Model not ready / invalid response")
-                        st.write(response.text)
-                        st.stop()
-
-                    try:
+                    elif model_choice == "mBERT":
+                        token = st.secrets["HF_TOKEN_Riddhi"]
+                    
+                        # Step 1: Verify model slug matches exactly what's on HuggingFace
+                        MODEL_ID = "riddhi04/mbert-hybrid-model"  # ← double-check this on hf.co
+                    
+                        response = requests.post(
+                            f"https://api-inference.huggingface.co/models/{MODEL_ID}",
+                            headers={
+                                "Authorization": f"Bearer {token}",
+                                "Content-Type": "application/json"
+                            },
+                            json={"inputs": user_text},
+                            timeout=30
+                        )
+                    
+                        # Step 2: Better error reporting
+                        if response.status_code != 200:
+                            st.error(f"HF API error {response.status_code}")
+                            st.code(response.text[:500])   # show first 500 chars safely
+                            st.stop()
+                    
                         result = response.json()
-                    except:
-                        st.error("Invalid response from model")
-                        st.write(response.text)
-                        st.stop()
-
-                    if isinstance(result, dict) and "error" in result:
-                        st.error("Model is loading... wait and retry")
-                        st.stop()
-
-                    if isinstance(result, list):
-                        result = result[0]
-
-                    label = result.get("label", "REAL")
-                    score = result.get("score", 0.5)
-
-                    prediction = 1 if "FAKE" in label.upper() else 0
-                    confidence = score
+                    
+                        # Step 3: Handle HF's actual nested-list response format
+                        # result = [[{"label": "FAKE", "score": 0.91}, {"label": "REAL", "score": 0.09}]]
+                        if isinstance(result, dict) and "error" in result:
+                            st.warning(f"Model loading: {result['error']} — wait ~20s and retry")
+                            st.stop()
+                    
+                        # Unwrap nested list
+                        if isinstance(result, list) and isinstance(result[0], list):
+                            result = result[0]   # now: [{"label": "FAKE", ...}, {"label": "REAL", ...}]
+                    
+                        # Get the top prediction (highest score)
+                        top = max(result, key=lambda x: x["score"])
+                        label = top.get("label", "REAL")
+                        confidence = top.get("score", 0.5)
+                        prediction = 1 if "FAKE" in label.upper() else 0
 
                 # ------------------------------
                 # XLM-R (FIXED JSON ERROR)
