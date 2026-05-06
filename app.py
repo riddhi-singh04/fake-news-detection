@@ -171,16 +171,20 @@ if st.button("Predict"):
                 # ------------------------------
                 elif model_choice == "mBERT":
                     token = st.secrets["HF_TOKEN_Riddhi"]
+                
                     client = Client(
-                        "riddhi04/mbert-space",       # ← your new Space name
+                        "riddhi04/mbert-hybrid-model",  # ← your Space name
                         hf_token=token
                     )
+                
                     result = client.predict(
-                        user_text,
-                        api_name="/predict"           # ← matches api_name in Gradio
+                        user_text,          # ← the news text
+                        api_name="/predict" # ← matches api_name in your Gradio app.py
                     )
+                
                     result_str = str(result)
                     prediction = 1 if "FAKE" in result_str.upper() else 0
+                
                     match = re.search(r"(\d+(\.\d+)?)%", result_str)
                     confidence = float(match.group(1)) / 100 if match else 0.85
                 # elif model_choice == "mBERT":
