@@ -515,8 +515,8 @@ if st.button("🔍 Predict", type="primary"):
                     prediction = 1 if "FAKE" in result_str.upper() else 0
 
                     match = re.search(r"(\d+(\.\d+)?)%", result_str)
-                    confidence = float(match.group(1)) / 100 if match else 0.85
-
+                    raw_score = float(match.group(1)) / 100 if match else 0.85
+                    confidence = raw_score if prediction == 1 else (1.0 - raw_score)
             # -------------------------------------------------
             # Result display
             # -------------------------------------------------
